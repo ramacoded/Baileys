@@ -1,6 +1,12 @@
 'use client'
-import ChatWindow from '@/components/chat-window'
+
+import dynamic from 'next/dynamic'
+import React from 'react'
+
+const ChatClient = dynamic(() => import('@/components/chat-client'), {
+  ssr: false,
+})
 
 export default function ChatPage() {
-  return <ChatWindow />
+  return <ChatClient />
 }
