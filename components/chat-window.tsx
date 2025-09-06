@@ -5,10 +5,10 @@ export default function ChatWindow() {
   const showWelcome = messages.length === 0
 
   return (
-    <main className="flex-1 overflow-y-auto pt-20 pb-32">
-      <div className="max-w-3xl mx-auto px-4">
+    <main className="flex-1 overflow-y-auto">
+      <div className="max-w-3xl mx-auto px-4 py-6">
         {showWelcome && (
-          <div className="flex flex-col items-center justify-center h-[calc(100vh-150px)]">
+          <div className="flex flex-col items-center justify-center h-[calc(100vh-180px)]">
             <h1 className="text-3xl md:text-4xl font-bold text-center text-muted-foreground/80">
               Halo, ada yang bisa dibantu?
             </h1>

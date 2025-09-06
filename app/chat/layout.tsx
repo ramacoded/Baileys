@@ -7,10 +7,10 @@ export default function ChatLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="relative flex h-screen w-full flex-col">
+    <>
       <AppHeader />
       {children}
       <Composer />
-    </div>
+    </>
   )
 }
