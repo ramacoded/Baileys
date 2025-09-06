@@ -1,7 +1,7 @@
-'use client'
+import { Message } from 'ai'
+import { Bot, User } from 'lucide-react'
 
-export default function ChatWindow() {
-  const messages: any[] = []
+export default function ChatWindow({ messages }: { messages: Message[] }) {
   const showWelcome = messages.length === 0
 
   return (
@@ -14,8 +14,17 @@ export default function ChatWindow() {
             </h1>
           </div>
         )}
-        <div className="flex flex-col gap-4">
-          {/* Daftar pesan akan muncul di sini */}
+        <div className="flex flex-col gap-6">
+          {messages.map(m => (
+            <div key={m.id} className="flex items-start gap-4">
+              <div className="flex-shrink-0 p-2 rounded-full bg-secondary">
+                {m.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+              </div>
+              <div className="prose prose-stone dark:prose-invert max-w-none pt-1">
+                <p>{m.content}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </main>
