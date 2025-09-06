@@ -6,8 +6,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Gemini Chatbot",
-  description: "AI Chatbot with Gemini, Next.js, and Supabase",
+  title: "Gemini Chat",
+  description: "Chatbot AI dengan Gemini dan Next.js",
 }
 
 export default function RootLayout({
@@ -24,7 +24,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <div className="flex flex-col min-h-screen">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>
