@@ -9,19 +9,30 @@ import { Paperclip, SendHorizontal, MoreHorizontal, LoaderCircle, Code, Image as
 import React, { useState } from 'react'
 import { AttachmentSheet } from './attachment-sheet'
 
+type ActiveFeature = 'none' | 'canvas' | 'image-gen'
+
 interface ComposerProps {
   input: string
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement> | React.ChangeEvent<HTMLInputElement>) => void
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void
   isLoading: boolean
+  activeFeature: ActiveFeature // Prop baru
+  onFeatureSelect: (feature: ActiveFeature) => void // Prop baru
 }
 
-export default function Composer({ input, handleInputChange, handleSubmit, isLoading }: ComposerProps) {
+export default function Composer({ 
+  input, 
+  handleInputChange, 
+  handleSubmit, 
+  isLoading,
+  activeFeature, // Ambil dari props
+  onFeatureSelect // Ambil dari props
+}: ComposerProps) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    handleSubmit(e)
+    e.preventDefault() 
+    handleSubmit(e)    
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -32,6 +43,26 @@ export default function Composer({ input, handleInputChange, handleSubmit, isLoa
         form.requestSubmit()
       }
     }
+  }
+
+  // Logika untuk menampilkan ikon fitur aktif
+  const renderActiveFeatureIcon = () => {
+    if (activeFeature === 'canvas') {
+      return (
+        <div className="relative">
+          <Code className="w-5 h-5 text-current" />
+          <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-blue-400" />
+        </div>
+      )
+    } else if (activeFeature === 'image-gen') {
+      return (
+        <div className="relative">
+          <ImageIcon className="w-5 h-5 text-current" />
+          <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-blue-400" />
+        </div>
+      )
+    }
+    return <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
   }
 
   return (
@@ -66,18 +97,30 @@ export default function Composer({ input, handleInputChange, handleSubmit, isLoa
               <DropdownMenu>
                 <Tooltip>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" disabled={isLoading}>
-                      <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      disabled={isLoading}
+                      className={activeFeature !== 'none' ? "text-blue-400" : ""} // Warna biru jika aktif
+                    >
+                      {renderActiveFeatureIcon()} {/* Panggil fungsi render ikon */}
                     </Button>
                   </DropdownMenuTrigger>
                   <TooltipContent>Opsi Lainnya</TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => console.log('Buka Canvas')}>
+                  <DropdownMenuItem 
+                    onClick={() => onFeatureSelect('canvas')}
+                    className={activeFeature === 'canvas' ? 'bg-accent text-accent-foreground' : ''}
+                  >
                     <Code className="w-4 h-4 mr-2" />
                     <span>Canvas</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => console.log('Generate Image')}>
+                  <DropdownMenuItem 
+                    onClick={() => onFeatureSelect('image-gen')}
+                    className={activeFeature === 'image-gen' ? 'bg-accent text-accent-foreground' : ''}
+                  >
                     <ImageIcon className="w-4 h-4 mr-2" />
                     <span>Generate Image</span>
                   </DropdownMenuItem>
@@ -98,4 +141,4 @@ export default function Composer({ input, handleInputChange, handleSubmit, isLoa
       </footer>
     </TooltipProvider>
   )
-      }
+                    }
