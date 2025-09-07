@@ -83,32 +83,24 @@ toast.error(error.message)
 
 const customHandleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 e.preventDefault()
-let currentSessionId = sessionId
 lastUserMessage.current = input
 
-if (!currentSessionId) {
 try {
-const response = await fetch('/api/sessions', {
+let currentSessionId = sessionId
+if (!currentSessionId) {
+const sessionResponse = await fetch('/api/sessions', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ title: input.substring(0, 50) })
 })
-const data = await response.json()
-if (data.id) {
-currentSessionId = data.id
-setSessionId(data.id)
-} else {
-toast.error('Gagal membuat sesi baru.')
-return
-}
-} catch {
-toast.error('Gagal menghubungi server untuk sesi baru.')
-return
-}
+if (!sessionResponse.ok) throw new Error("Gagal membuat sesi baru")
+const sessionData = await sessionResponse.json()
+currentSessionId = sessionData.id
+setSessionId(sessionData.id)
 }
 
 if (currentSessionId) {
-await fetch('/api/messages', {
+const messageResponse = await fetch('/api/messages', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
@@ -117,9 +109,14 @@ role: 'user',
 session_id: currentSessionId
 })
 })
+if (!messageResponse.ok) throw new Error("Gagal menyimpan pesan pengguna")
 }
 
 handleSubmit(e)
+} catch (error) {
+console.error("Kesalahan saat mengirim pesan:", error)
+toast.error(error instanceof Error ? error.message : "Gagal mengirim pesan")
+}
 }
 
 const handleFeatureSelect = (feature: ActiveFeature) => {
