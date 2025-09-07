@@ -10,6 +10,10 @@ export default function ChatPage() {
 const [activeFeature, setActiveFeature] = React.useState<ActiveFeature>('none')
 
 const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+api: '/api/chat/stream',
+body: {
+activeFeature
+},
 onFinish: (message) => {
 setActiveFeature('none')
 console.log("Finished!", message)
@@ -41,4 +45,4 @@ onFeatureSelect={handleFeatureSelect}
 />
 </div>
 )
-  }
+}
