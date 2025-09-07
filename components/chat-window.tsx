@@ -1,7 +1,14 @@
-import { Message } from 'ai'
-import { Bot, User } from 'lucide-react'
+'use client'
 
-export default function ChatWindow({ messages }: { messages: Message[] }) {
+import { Message } from 'ai'
+import { ChatMessage } from './chat-message'
+
+interface ChatWindowProps {
+  messages: Message[]
+  onPreview: (htmlContent: string) => void
+}
+
+export default function ChatWindow({ messages, onPreview }: ChatWindowProps) {
   const showWelcome = messages.length === 0
 
   return (
@@ -16,14 +23,7 @@ export default function ChatWindow({ messages }: { messages: Message[] }) {
         )}
         <div className="flex flex-col gap-6">
           {messages.map(m => (
-            <div key={m.id} className="flex items-start gap-4">
-              <div className="flex-shrink-0 p-2 rounded-full bg-secondary">
-                {m.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
-              </div>
-              <div className="prose prose-stone dark:prose-invert max-w-none pt-1">
-                <p>{m.content}</p>
-              </div>
-            </div>
+            <ChatMessage key={m.id} message={m} onPreview={onPreview} />
           ))}
         </div>
       </div>
