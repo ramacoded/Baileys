@@ -11,7 +11,6 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
   let isCanvasCard = false
   let cardProps = null
 
-  // Coba parse konten pesan. Jika berhasil dan tipenya canvas-card, render kartu.
   try {
     const parsedContent = JSON.parse(message.content)
     if (message.role === 'system' && parsedContent.type === 'canvas-card') {
@@ -19,14 +18,13 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
       cardProps = parsedContent
     }
   } catch (e) {
-    // Bukan JSON, biarkan sebagai pesan biasa
+    // Abaikan jika bukan JSON
   }
 
   if (isCanvasCard && cardProps) {
     return <CanvasCard {...cardProps} />
   }
   
-  // Jangan render pesan sistem yang bukan kartu
   if (message.role === 'system') {
     return null
   }
@@ -41,14 +39,14 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
     >
       <div
         className={cn(
-          "flex space-x-2 rounded-lg px-3 py-2 text-base",
+          "flex space-x-2 rounded-lg px-3 py-2",
           message.role === "user"
             ? "bg-primary text-primary-foreground"
             : "bg-muted"
         )}
       >
-        <span className="break-words">{message.content}</span>
+        <span className="break-words whitespace-pre-wrap">{message.content}</span>
       </div>
     </div>
   )
-}
+          }
