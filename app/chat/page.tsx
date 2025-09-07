@@ -9,14 +9,40 @@ import Composer, { type ActiveFeature } from "@/components/composer"
 export default function ChatPage() {
 const [activeFeature, setActiveFeature] = React.useState<ActiveFeature>('none')
 
-const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
 api: '/api/chat/stream',
 body: {
 activeFeature
 },
-onFinish: (message) => {
+onFinish: async (message) => {
+if (activeFeature === 'canvas' && message.content.includes('<!DOCTYPE html>')) {
+try {
+const response = await fetch('/api/artifacts', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+htmlContent: message.content,
+title: "Hasil Canvas"
+})
+})
+const data = await response.json()
+if (data.id) {
+const artifactMessage = {
+role: 'system' as const,
+content: JSON.stringify({
+type: 'canvas-card',
+artifactId: data.id,
+title: "Hasil Canvas",
+htmlContent: message.content
+})
+}
+append(artifactMessage)
+}
+} catch (error) {
+toast.error('Gagal menyimpan hasil canvas.')
+}
+}
 setActiveFeature('none')
-console.log("Finished!", message)
 },
 onError: (error) => {
 toast.error(error.message)
