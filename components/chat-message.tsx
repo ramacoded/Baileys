@@ -1,77 +1,31 @@
 'use client'
 
-import { Message } from "ai"
-import { Bot, User, LoaderCircle } from "lucide-react"
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { CanvasCard } from "./canvas-card"
-import { useState, useEffect } from "react"
+import { Message } from 'ai'
+import { ChatMessage } from './chat-message'
 
-interface ChatMessageProps {
-  message: Message
+interface ChatWindowProps {
+  messages: Message[]
 }
 
-const extractTitle = (html: string): string => {
-  const match = html.match(/<title>(.*?)<\/title>/)
-  return match ? match[1] : "Untitled"
-}
-
-export function ChatMessage({ message }: ChatMessageProps) {
-  const [artifact, setArtifact] = useState<{ id: string; title: string; html: string } | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isProcessed, setIsProcessed] = useState(false)
-
-  const isHtmlResponse = message.role === 'assistant' && /<!DOCTYPE html>/i.test(message.content)
-
-  useEffect(() => {
-    if (isHtmlResponse && !isProcessed && !isLoading) {
-      const saveArtifact = async () => {
-        setIsLoading(true)
-        const title = extractTitle(message.content)
-        try {
-          const response = await fetch('/api/artifacts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ htmlContent: message.content, title: title }),
-          })
-          if (response.ok) {
-            const data = await response.json()
-            setArtifact({ id: data.id, title, html: message.content })
-          }
-        } catch (error) {
-          console.error("Failed to save artifact", error)
-        } finally {
-          setIsLoading(false)
-          setIsProcessed(true)
-        }
-      }
-      saveArtifact()
-    }
-  }, [isHtmlResponse, message.content, isProcessed, isLoading])
+export default function ChatWindow({ messages }: ChatWindowProps) {
+  const showWelcome = messages.length === 0
 
   return (
-    <div className="flex items-start gap-4">
-      <div className="flex-shrink-0 p-2 rounded-full bg-secondary">
-        {message.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
-      </div>
-      <div className="w-full">
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <LoaderCircle className="w-4 h-4 animate-spin" />
-            <span>Memproses Canvas...</span>
-          </div>
-        ) : artifact ? (
-          <CanvasCard
-            artifactId={artifact.id}
-            title={artifact.title}
-            htmlContent={artifact.html}
-          />
-        ) : (
-          <div className="prose prose-stone dark:prose-invert max-w-none pt-1">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+    <main className="flex-1 overflow-y-auto">
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        {showWelcome && (
+          <div className="flex flex-col items-center justify-center h-[calc(100vh-180px)]">
+            <h1 className="text-3xl md:text-4xl font-bold text-center text-muted-foreground/80">
+              Halo, ada yang bisa dibantu?
+            </h1>
           </div>
         )}
+        <div className="flex flex-col gap-6">
+          {messages.map(m => (
+            <ChatMessage key={m.id} message={m} />
+          ))}
+        </div>
       </div>
-    </div>
+    </main>
   )
-              }
+      }
