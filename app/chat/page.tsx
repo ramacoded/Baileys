@@ -24,7 +24,7 @@ export default function ChatPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               htmlContent: message.content,
-              title: "Hasil Canvas" // Anda bisa membuat ini dinamis nanti
+              title: "Hasil Canvas"
             })
           })
           
@@ -57,21 +57,19 @@ export default function ChatPage() {
   })
 
   const handlePreview = (url: string) => {
-    // Fungsi ini bisa Anda gunakan nanti jika diperlukan
     console.log("Previewing URL:", url)
   }
 
   const handleFeatureSelect = (feature: ActiveFeature) => {
-    // Toggle off jika fitur yang sama diklik lagi
     setActiveFeature(prev => prev === feature ? 'none' : feature)
   }
 
   return (
-    <div className="flex h-screen">
-      <div className={`transition-all duration-300 ${isDrawerOpen ? 'w-72' : 'w-0'} overflow-hidden`}>
+    <div className="flex h-screen bg-background">
+      <div className={`transition-all duration-300 bg-muted/50 overflow-hidden ${isDrawerOpen ? 'w-72' : 'w-0'}`}>
         <SessionDrawer />
       </div>
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 border-l">
         <AppHeader onMenuClick={() => setIsDrawerOpen(!isDrawerOpen)} />
         <ChatWindow messages={messages} onPreview={handlePreview} />
         <Composer
@@ -85,4 +83,4 @@ export default function ChatPage() {
       </div>
     </div>
   )
-                                      }
+        }
