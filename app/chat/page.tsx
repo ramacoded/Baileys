@@ -1,6 +1,6 @@
 "use client"
 import * as React from "react"
-import { useChat } from "ai/react"
+import { useChat, type Message } from "ai/react"
 import { toast } from "react-hot-toast"
 import ChatWindow from "@/components/chat-window"
 import AppHeader from "@/components/app-header"
@@ -11,23 +11,22 @@ export default function ChatPage() {
 const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
 const [activeFeature, setActiveFeature] = React.useState<ActiveFeature>('none')
 const [sessionId, setSessionId] = React.useState<string | null>(null)
-const lastUserMessage = React.useRef<string | null>(null)
 
-const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
+const { messages, input, handleInputChange, handleSubmit, isLoading, append, setMessages } = useChat({
 api: '/api/chat/stream',
 body: {
 activeFeature
 },
 async onFinish(assistantMessage) {
 let currentSessionId = sessionId
-const userMessageContent = lastUserMessage.current
+const lastUserMessage = messages.findLast(m => m.role === 'user')
 
 try {
-if (!currentSessionId && userMessageContent) {
+if (!currentSessionId && lastUserMessage) {
 const sessionResponse = await fetch('/api/sessions', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ title: userMessageContent.substring(0, 50) })
+body: JSON.stringify({ title: lastUserMessage.content.substring(0, 50) })
 })
 if (!sessionResponse.ok) throw new Error('Gagal membuat sesi baru')
 const sessionData = await sessionResponse.json()
@@ -35,13 +34,13 @@ currentSessionId = sessionData.id
 setSessionId(currentSessionId)
 }
 
-if (currentSessionId && userMessageContent) {
+if (currentSessionId && lastUserMessage) {
 await Promise.all([
 fetch('/api/messages', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
-content: userMessageContent,
+content: lastUserMessage.content,
 role: 'user',
 session_id: currentSessionId
 })
@@ -70,7 +69,7 @@ method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 htmlContent: assistantMessage.content,
-title: userMessageContent || "Hasil Canvas Otomatis"
+title: lastUserMessage?.content || "Hasil Canvas Otomatis"
 })
 })
 
@@ -84,12 +83,13 @@ const data = await response.json()
 
 if (data.id) {
 toast.success('Canvas berhasil disimpan.')
-const artifactMessage = {
-role: 'system' as const,
+const artifactMessage: Message = {
+id: Date.now().toString(),
+role: 'system',
 content: JSON.stringify({
 type: 'canvas-card',
 artifactId: data.id,
-title: userMessageContent || "Hasil Canvas Otomatis",
+title: lastUserMessage?.content || "Hasil Canvas Otomatis",
 htmlContent: assistantMessage.content
 })
 }
@@ -112,19 +112,15 @@ toast.error(error.message)
 },
 })
 
-const handleSubmitWrapper = (e: React.FormEvent<HTMLFormElement>) => {
-lastUserMessage.current = input
-handleSubmit(e)
-}
-
-const handleFeatureSelect = (feature: ActiveFeature) => {
-setActiveFeature(prev => prev === feature ? 'none' : feature)
+const handleNewSession = () => {
+setMessages([])
+setSessionId(null)
 }
 
 return (
 <div className="h-screen w-full relative overflow-hidden bg-background">
 <div className={`absolute top-0 left-0 h-full bg-background border-r z-50 w-72 transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-<SessionDrawer />
+<SessionDrawer onNewSession={handleNewSession} />
 </div>
 
 {isDrawerOpen && (
@@ -140,10 +136,10 @@ className="absolute inset-0 bg-muted z-40 md:hidden"
 <Composer
 input={input}
 handleInputChange={handleInputChange}
-handleSubmit={handleSubmitWrapper}
+handleSubmit={handleSubmit}
 isLoading={isLoading}
 activeFeature={activeFeature}
-onFeatureSelect={handleFeatureSelect}
+onFeatureSelect={(feature) => setActiveFeature(prev => prev === feature ? 'none' : feature)}
 />
 </div>
 </div>

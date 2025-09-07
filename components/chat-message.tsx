@@ -1,6 +1,9 @@
 import { Message } from "ai"
 import { cn } from "@/lib/utils"
 import { CanvasCard } from './canvas-card'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import CodeBlock from './code-block'
 
 export interface ChatMessageProps {
 message: Message
@@ -34,13 +37,38 @@ message.role === "user" ? "justify-end" : "justify-start"
 >
 <div
 className={cn(
-"flex space-x-2 rounded-lg px-3 py-2",
+"flex space-x-2 rounded-lg px-3 py-2 max-w-full overflow-x-auto",
 message.role === "user"
 ? "bg-primary text-primary-foreground"
 : "bg-muted"
 )}
 >
+{message.role === 'assistant' ? (
+<div className="prose prose-stone dark:prose-invert prose-p:before:content-none prose-p:after:content-none">
+<ReactMarkdown
+remarkPlugins={[remarkGfm]}
+components={{
+code({ node, className, children, ...props }) {
+const match = /language-(\w+)/.exec(className || '')
+const lang = match?.[1]
+if (lang) {
+return (
+<CodeBlock
+language={lang}
+value={String(children).replace(/\n$/, '')}
+/>
+)
+}
+return <code className={className} {...props}>{children}</code>
+},
+}}
+>
+{message.content}
+</ReactMarkdown>
+</div>
+) : (
 <span className="break-words whitespace-pre-wrap">{message.content}</span>
+)}
 </div>
 </div>
 )
