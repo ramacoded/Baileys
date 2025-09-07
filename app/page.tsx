@@ -1,60 +1,103 @@
-'use client'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-export default function Home() {
-const [email, setEmail] = useState('')
-const [submitted, setSubmitted] = useState(false)
-const router = useRouter()
-const supabase = createClient()
-const handleLogin = async (e: React.FormEvent) => {
-e.preventDefault()
-const { error } = await supabase.auth.signInWithOtp({
-email,
-options: {
-emailRedirectTo: `${location.origin}/auth/callback`,
-},
-})
-if (!error) {
-setSubmitted(true)
-} else {
-console.error("Login error:", error.message)
-}
-}
-supabase.auth.onAuthStateChange((event, session) => {
-if (session) {
-router.push('/chat')
-}
-})
-if (submitted) {
-return (
-<main className="flex min-h-screen flex-col items-center justify-center p-24 bg-background">
-<div className="z-10 w-full max-w-md items-center justify-center font-mono text-sm flex flex-col gap-4 text-center">
-<h1 className="text-2xl font-bold">Periksa Email Anda</h1>
-<p className="text-muted-foreground">
-Kami telah mengirimkan tautan ajaib ke {email}. Klik tautan itu untuk masuk.
-</p>
-</div>
-</main>
-)
-}
-return (
-<main className="flex min-h-screen flex-col items-center justify-center p-24 bg-background">
-<div className="z-10 w-full max-w-xs items-center justify-center font-mono text-sm flex flex-col gap-4">
-<h1 className="text-2xl font-bold text-center">Masuk ke Gemini Chat</h1>
-<form onSubmit={handleLogin} className="w-full flex flex-col gap-4">
-<Input
-type="email"
-placeholder="Email Anda"
-value={email}
-onChange={(e) => setEmail(e.target.value)}
-required
-/>
-<Button type="submit">Kirim Tautan Ajaib</Button>
-</form>
-</div>
-</main>
-)
-}
+"use client"
+import * as React from "react"
+import { useChat } from "ai/react"
+import { toast } from "react-hot-toast"
+import ChatWindow from "@/components/chat-window"
+import AppHeader from "@/components/app-header"
+import Composer, { type ActiveFeature } from "@/components/composer"
+import SessionDrawer from "@/components/session-drawer"
+
+export default function ChatPage() {
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
+  const [activeFeature, setActiveFeature] = React.useState<ActiveFeature>('none')
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
+    api: '/api/chat/stream',
+    body: {
+      activeFeature
+    },
+    onFinish: async (message) => {
+      if (activeFeature === 'canvas' && message.content.includes('<!DOCTYPE html>')) {
+        toast.loading('Menerima hasil canvas, menyimpan...')
+        try {
+          const response = await fetch('/api/artifacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              htmlContent: message.content,
+              title: "Hasil Canvas Otomatis"
+            })
+          })
+
+          toast.dismiss()
+          if (!response.ok) {
+            toast.error('Gagal menyimpan ke server.')
+            throw new Error(`Server error: ${response.statusText}`)
+          }
+          
+          const data = await response.json()
+
+          if (data.id) {
+            toast.success('Canvas berhasil disimpan, menampilkan kartu.')
+            const artifactMessage = {
+              role: 'system' as const,
+              content: JSON.stringify({
+                type: 'canvas-card',
+                artifactId: data.id,
+                title: "Hasil Canvas Otomatis",
+                htmlContent: message.content
+              })
+            }
+            append(artifactMessage)
+          } else {
+            toast.error('Server tidak mengembalikan ID artifact.')
+          }
+        } catch (error) {
+          toast.dismiss()
+          toast.error('Terjadi kesalahan saat menyimpan canvas.')
+          console.error(error)
+        }
+      }
+      setActiveFeature('none')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const handlePreview = (url: string) => {
+    console.log("Previewing URL:", url)
+  }
+
+  const handleFeatureSelect = (feature: ActiveFeature) => {
+    setActiveFeature(prev => prev === feature ? 'none' : feature)
+  }
+
+  return (
+    <div className="h-screen w-full relative overflow-hidden bg-background">
+      <div className={`absolute top-0 left-0 h-full bg-background border-r z-50 w-72 transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <SessionDrawer />
+      </div>
+
+      {isDrawerOpen && (
+        <div 
+          onClick={() => setIsDrawerOpen(false)} 
+          className="absolute inset-0 bg-black/60 z-40 md:hidden"
+        />
+      )}
+
+      <div className="flex flex-col h-full">
+        <AppHeader onMenuClick={() => setIsDrawerOpen(!isDrawerOpen)} />
+        <ChatWindow messages={messages} onPreview={handlePreview} />
+        <Composer
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={handleSubmit}
+          isLoading={isLoading}
+          activeFeature={activeFeature}
+          onFeatureSelect={handleFeatureSelect}
+        />
+      </div>
+    </div>
+  )
+              }
