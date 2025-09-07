@@ -1,9 +1,9 @@
 "use client"
 import { useChat, type Message } from "ai/react"
 import { toast } from "react-hot-toast"
-import { ChatWindow } from "@/components/chat-window"
-import { AppHeader } from "@/components/app-header"
-import { Composer } from "@/components/composer"
+import ChatWindow from "@/components/chat-window"
+import AppHeader from "@/components/app-header"
+import Composer from "@/components/composer"
 export default function ChatPage() {
 const { messages, input, handleInputChange, handleSubmit } = useChat({
 onFinish: (message) => {
