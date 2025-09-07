@@ -16,7 +16,7 @@ export default function ChatWindow({ messages, onPreview }: ChatWindowProps) {
       <div className="max-w-3xl mx-auto px-4 py-6">
         {showWelcome && (
           <div className="flex flex-col items-center justify-center h-[calc(100vh-180px)]">
-            <h1 className="text-3xl md:text-4xl font-bold text-center text-muted-foreground/80">
+           <h1 className="text-3xl md:text-4xl font-bold text-center text-muted-foreground/80">
               Halo, ada yang bisa dibantu?
             </h1>
           </div>
