@@ -1,9 +1,12 @@
 import { Message } from "ai"
 import { cn } from "@/lib/utils"
+
 export interface ChatMessageProps {
 message: Message
+onPreview: (htmlContent: string) => void
 }
-export function ChatMessage({ message, ...props }: ChatMessageProps) {
+
+export function ChatMessage({ message, onPreview, ...props }: ChatMessageProps) {
 return (
 <div
 className={cn(
