@@ -17,7 +17,10 @@ export default function ChatPage() {
       activeFeature
     },
     onFinish: async (message) => {
-      if (activeFeature === 'canvas' && message.content.includes('<!DOCTYPE html>')) {
+      // PERUBAHAN LOGIKA UTAMA ADA DI SINI:
+      // Kita sekarang hanya memeriksa apakah fitur 'canvas' sedang aktif,
+      // tanpa perlu memeriksa isi pesannya lagi.
+      if (activeFeature === 'canvas') {
         toast.loading('Menerima hasil canvas, menyimpan...')
         try {
           const response = await fetch('/api/artifacts', {
@@ -58,6 +61,7 @@ export default function ChatPage() {
           console.error(error)
         }
       }
+      // Selalu reset fitur setelah selesai
       setActiveFeature('none')
     },
     onError: (error) => {
@@ -100,4 +104,4 @@ export default function ChatPage() {
       </div>
     </div>
   )
-              }
+        }
