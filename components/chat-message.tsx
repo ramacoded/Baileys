@@ -8,24 +8,15 @@ export interface ChatMessageProps {
 }
 
 export function ChatMessage({ message, ...props }: ChatMessageProps) {
-  let isCanvasCard = false
-  let cardProps = null
-
-  try {
-    const parsedContent = JSON.parse(message.content)
-    if (message.role === 'system' && parsedContent.type === 'canvas-card') {
-      isCanvasCard = true
-      cardProps = parsedContent
-    }
-  } catch (e) {
-    // Abaikan jika bukan JSON
-  }
-
-  if (isCanvasCard && cardProps) {
-    return <CanvasCard {...cardProps} />
-  }
-  
   if (message.role === 'system') {
+    try {
+      const parsedContent = JSON.parse(message.content)
+      if (parsedContent.type === 'canvas-card') {
+        return <CanvasCard {...parsedContent} />
+      }
+    } catch (e) {
+      // Abaikan jika bukan JSON
+    }
     return null
   }
 
@@ -49,4 +40,4 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
       </div>
     </div>
   )
-          }
+}
