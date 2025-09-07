@@ -1,31 +1,27 @@
-'use client'
-
-import { Message } from 'ai'
-import { ChatMessage } from './chat-message'
-
-interface ChatWindowProps {
-  messages: Message[]
+import { Message } from "ai"
+import { cn } from "@/lib/utils"
+export interface ChatMessageProps {
+message: Message
 }
-
-export default function ChatWindow({ messages }: ChatWindowProps) {
-  const showWelcome = messages.length === 0
-
-  return (
-    <main className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-4 py-6">
-        {showWelcome && (
-          <div className="flex flex-col items-center justify-center h-[calc(100vh-180px)]">
-            <h1 className="text-3xl md:text-4xl font-bold text-center text-muted-foreground/80">
-              Halo, ada yang bisa dibantu?
-            </h1>
-          </div>
-        )}
-        <div className="flex flex-col gap-6">
-          {messages.map(m => (
-            <ChatMessage key={m.id} message={m} />
-          ))}
-        </div>
-      </div>
-    </main>
-  )
-      }
+export function ChatMessage({ message, ...props }: ChatMessageProps) {
+return (
+<div
+className={cn(
+"group relative mb-4 flex items-start",
+message.role === "user" ? "justify-end" : "justify-start"
+)}
+{...props}
+>
+<div
+className={cn(
+"flex space-x-2 rounded-lg px-3 py-2",
+message.role === "user"
+? "bg-primary text-primary-foreground"
+: "bg-muted"
+)}
+>
+<span className="break-words">{message.content}</span>
+</div>
+</div>
+)
+}
