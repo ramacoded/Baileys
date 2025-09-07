@@ -27,7 +27,7 @@ sequence={[
 wrapper="h1"
 cursor={true}
 repeat={Infinity}
-className="text-3xl md:text-4xl font-bold text-center text-muted-foreground/80"
+className="text-3xl md:text-4xl font-bold text-center text-muted-foreground"
 />
 </div>
 )}

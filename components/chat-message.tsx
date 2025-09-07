@@ -37,14 +37,14 @@ message.role === "user" ? "justify-end" : "justify-start"
 >
 <div
 className={cn(
-"flex space-x-2 rounded-lg px-3 py-2 max-w-full overflow-x-auto",
+"flex space-x-2 rounded-lg px-3 py-2 max-w-full",
 message.role === "user"
 ? "bg-primary text-primary-foreground"
 : "bg-muted"
 )}
 >
 {message.role === 'assistant' ? (
-<div className="prose prose-stone dark:prose-invert prose-p:before:content-none prose-p:after:content-none">
+<article className="prose prose-stone dark:prose-invert max-w-none">
 <ReactMarkdown
 remarkPlugins={[remarkGfm]}
 components={{
@@ -65,7 +65,7 @@ return <code className={className} {...props}>{children}</code>
 >
 {message.content}
 </ReactMarkdown>
-</div>
+</article>
 ) : (
 <span className="break-words whitespace-pre-wrap">{message.content}</span>
 )}

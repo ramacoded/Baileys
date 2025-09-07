@@ -83,7 +83,7 @@ value={input}
 onChange={handleInputChange}
 onKeyDown={handleKeyDown}
 placeholder="Ketik pesan..."
-className="w-full rounded-2xl p-3 pl-12 pr-24 resize-none border-border/40 shadow-sm h-12 min-h-0"
+className="w-full rounded-2xl p-3 pl-12 pr-24 resize-none border-border h-12 min-h-0"
 disabled={isLoading}
 />
 <div className="absolute right-2 flex items-center gap-1">

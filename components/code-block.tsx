@@ -24,7 +24,7 @@ setTimeout(() => setIsCopied(false), 2000)
 }
 
 return (
-<div className="relative font-sans text-sm bg-[#363A48] rounded-md">
+<div className="relative font-sans text-sm bg-[#363A48] rounded-md overflow-x-auto">
 <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-700">
 <span className="text-xs text-zinc-300">{language}</span>
 <button
@@ -38,10 +38,12 @@ onClick={handleCopy}
 <SyntaxHighlighter
 language={language}
 style={coldarkDark}
+wrapLongLines={true}
 customStyle={{
 margin: 0,
 padding: '1rem',
-backgroundColor: '#363A48',
+backgroundColor: 'transparent',
+width: '100%',
 }}
 >
 {value}
