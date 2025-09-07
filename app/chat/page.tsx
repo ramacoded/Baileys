@@ -4,12 +4,12 @@ import { useChat, type Message } from "ai/react"
 import { toast } from "react-hot-toast"
 import ChatWindow from "@/components/chat-window"
 import AppHeader from "@/components/app-header"
-import Composer from "@/components/composer"
+import Composer, { type ActiveFeature } from "@/components/composer"
 export default function ChatPage() {
-const [activeFeature, setActiveFeature] = React.useState<string | null>(null)
+const [activeFeature, setActiveFeature] = React.useState<ActiveFeature | undefined>(undefined)
 const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
 onFinish: (message) => {
-setActiveFeature(null)
+setActiveFeature(undefined)
 console.log("Finished!", message)
 },
 onError: (error) => {
@@ -19,7 +19,7 @@ toast.error(error.message)
 const handlePreview = (url: string) => {
 console.log("Previewing URL:", url)
 }
-const handleFeatureSelect = (feature: string | null) => {
+const handleFeatureSelect = (feature: ActiveFeature | undefined) => {
 setActiveFeature(feature)
 }
 return (
