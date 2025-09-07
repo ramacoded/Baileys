@@ -30,11 +30,6 @@ onFeatureSelect
 }: ComposerProps) {
 const [sheetOpen, setSheetOpen] = useState(false)
 
-const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-e.preventDefault()
-handleSubmit(e)
-}
-
 const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 if (e.key === 'Enter' && !e.shiftKey) {
 e.preventDefault()
@@ -68,7 +63,7 @@ return (
 <TooltipProvider delayDuration={0}>
 <footer className="bg-muted border-t">
 <div className="max-w-3xl mx-auto px-4 py-3">
-<form onSubmit={handleFormSubmit} className="relative flex items-center">
+<form onSubmit={handleSubmit} className="relative flex items-center">
 <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
 <Tooltip>
 <SheetTrigger asChild>
