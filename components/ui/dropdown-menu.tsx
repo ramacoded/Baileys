@@ -150,14 +150,15 @@ className={cn("-mx-1 my-1 h-px bg-muted", className)}
 {...props}
 />
 ))
-DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName
+DropdownMenuSeparator.displayName =
+DropdownMenuPrimitive.Separator.displayName
 const DropdownMenuShortcut = ({
 className,
 ...props
 }: React.HTMLAttributes<HTMLSpanElement>) => {
 return (
 <span
-className={cn("ml-auto text-xs tracking-widest opacity-60", className)}
+className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
 {...props}
 />
 )
@@ -179,4 +180,4 @@ DropdownMenuSub,
 DropdownMenuSubContent,
 DropdownMenuSubTrigger,
 DropdownMenuRadioGroup,
-  }
+}

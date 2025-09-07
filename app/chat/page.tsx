@@ -18,17 +18,48 @@ api: '/api/chat/stream',
 body: {
 activeFeature
 },
-onFinish: async (message) => {
-if (sessionId) {
-await fetch('/api/messages', {
+async onFinish(assistantMessage) {
+let currentSessionId = sessionId
+const userMessageContent = lastUserMessage.current
+
+try {
+if (!currentSessionId && userMessageContent) {
+const sessionResponse = await fetch('/api/sessions', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ title: userMessageContent.substring(0, 50) })
+})
+if (!sessionResponse.ok) throw new Error('Gagal membuat sesi baru')
+const sessionData = await sessionResponse.json()
+currentSessionId = sessionData.id
+setSessionId(currentSessionId)
+}
+
+if (currentSessionId && userMessageContent) {
+await Promise.all([
+fetch('/api/messages', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
-content: message.content,
+content: userMessageContent,
+role: 'user',
+session_id: currentSessionId
+})
+}),
+fetch('/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+content: assistantMessage.content,
 role: 'assistant',
-session_id: sessionId
+session_id: currentSessionId
 })
 })
+])
+}
+} catch (error) {
+console.error("Gagal menyimpan percakapan:", error)
+toast.error(error instanceof Error ? error.message : "Gagal menyimpan percakapan")
 }
 
 if (activeFeature === 'canvas') {
@@ -38,8 +69,8 @@ const response = await fetch('/api/artifacts', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
-htmlContent: message.content,
-title: lastUserMessage.current || "Hasil Canvas Otomatis"
+htmlContent: assistantMessage.content,
+title: userMessageContent || "Hasil Canvas Otomatis"
 })
 })
 
@@ -58,8 +89,8 @@ role: 'system' as const,
 content: JSON.stringify({
 type: 'canvas-card',
 artifactId: data.id,
-title: lastUserMessage.current || "Hasil Canvas Otomatis",
-htmlContent: message.content
+title: userMessageContent || "Hasil Canvas Otomatis",
+htmlContent: assistantMessage.content
 })
 }
 append(artifactMessage)
@@ -81,42 +112,9 @@ toast.error(error.message)
 },
 })
 
-const customHandleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-e.preventDefault()
+const handleSubmitWrapper = (e: React.FormEvent<HTMLFormElement>) => {
 lastUserMessage.current = input
-
-try {
-let currentSessionId = sessionId
-if (!currentSessionId) {
-const sessionResponse = await fetch('/api/sessions', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ title: input.substring(0, 50) })
-})
-if (!sessionResponse.ok) throw new Error("Gagal membuat sesi baru")
-const sessionData = await sessionResponse.json()
-currentSessionId = sessionData.id
-setSessionId(sessionData.id)
-}
-
-if (currentSessionId) {
-const messageResponse = await fetch('/api/messages', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({
-content: input,
-role: 'user',
-session_id: currentSessionId
-})
-})
-if (!messageResponse.ok) throw new Error("Gagal menyimpan pesan pengguna")
-}
-
 handleSubmit(e)
-} catch (error) {
-console.error("Kesalahan saat mengirim pesan:", error)
-toast.error(error instanceof Error ? error.message : "Gagal mengirim pesan")
-}
 }
 
 const handleFeatureSelect = (feature: ActiveFeature) => {
@@ -142,7 +140,7 @@ className="absolute inset-0 bg-muted z-40 md:hidden"
 <Composer
 input={input}
 handleInputChange={handleInputChange}
-handleSubmit={customHandleSubmit}
+handleSubmit={handleSubmitWrapper}
 isLoading={isLoading}
 activeFeature={activeFeature}
 onFeatureSelect={handleFeatureSelect}
