@@ -62,4 +62,4 @@ export default function ChatPage() {
       <CanvasPanel htmlContent={canvasContent} onOpenChange={handleCloseCanvas} />
     </div>
   )
-        }
+}
