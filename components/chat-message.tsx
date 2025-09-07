@@ -1,5 +1,6 @@
 import { Message } from "ai"
 import { cn } from "@/lib/utils"
+import { CanvasCard } from './canvas-card'
 
 export interface ChatMessageProps {
 message: Message
@@ -7,6 +8,23 @@ onPreview: (htmlContent: string) => void
 }
 
 export function ChatMessage({ message, onPreview, ...props }: ChatMessageProps) {
+let isCanvasCard = false
+let cardProps = null
+
+try {
+const parsedContent = JSON.parse(message.content)
+if (parsedContent.type === 'canvas-card') {
+isCanvasCard = true
+cardProps = parsedContent
+}
+} catch (e) {
+// Not a JSON object, treat as regular text
+}
+
+if (message.role === 'system' && isCanvasCard && cardProps) {
+return <CanvasCard {...cardProps} />
+}
+
 return (
 <div
 className={cn(
