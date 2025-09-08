@@ -51,7 +51,7 @@ if (isDeleting) {
 if (displayedText.length > 0) {
 timeout = setTimeout(() => {
 setDisplayedText(current => current.slice(0, -1))
-}, 30) // Kecepatan hapus
+}, 50)
 } else {
 setIsDeleting(false)
 setPhraseIndex(prev => (prev + 1) % phrases.length)
@@ -60,17 +60,17 @@ setPhraseIndex(prev => (prev + 1) % phrases.length)
 if (displayedText.length < currentPhrase.length) {
 timeout = setTimeout(() => {
 setDisplayedText(current => currentPhrase.slice(0, displayedText.length + 1))
-}, 50) // Kecepatan tulis
+}, 60)
 } else {
 const standbyTime = currentPhrase === "DeepCore" ? 5000 : 500
 timeout = setTimeout(() => {
 setIsDeleting(true)
-}, standbyTime) // Waktu jeda
+}, standbyTime)
 }
 }
 
 return () => clearTimeout(timeout)
-}, [displayedText, isDeleting, phraseIndex, currentPhrase, phrases])
+}, [displayedText, isDeleting, phraseIndex, currentPhrase])
 
 
 const handleSignInWithGoogle = async () => {
@@ -103,9 +103,9 @@ return (
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
-initial={{ opacity: 0, y: 20 }}
+initial={{ opacity: 0, y: -20 }}
 animate={{ opacity: 1, y: 0 }}
-exit={{ opacity: 0, y: -20 }}
+exit={{ opacity: 0, y: 20 }}
 transition={{ duration: 0.4 }}
 className="text-4xl md:text-6xl font-bold drop-shadow-lg"
 >
