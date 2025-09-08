@@ -35,9 +35,8 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState("")
-const [isTyping, setIsTyping] = useState(true)
-const [isDeleting, setIsDeleting] = useState(false)
 const [charIndex, setCharIndex] = useState(0)
+const [isDeleting, setIsDeleting] = useState(false)
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
 const [submitted, setSubmitted] = useState(false)
@@ -47,40 +46,35 @@ const currentPhrase = phrases[phraseIndex].text
 const currentBgColor = phrases[phraseIndex].bgColor
 
 useEffect(() => {
-if (isTyping) {
+const handleTyping = () => {
 if (charIndex < currentPhrase.length) {
-const typingTimeout = setTimeout(() => {
 setDisplayedText(currentPhrase.substring(0, charIndex + 1))
-setCharIndex(charIndex + 1)
-}, 50)
-return () => clearTimeout(typingTimeout)
+setCharIndex(prev => prev + 1)
 } else {
-const pauseTimeout = setTimeout(() => {
-setIsTyping(false)
-setIsDeleting(true)
-}, currentPhrase === "DeepCore" ? 5000 : 500)
-return () => clearTimeout(pauseTimeout)
+setTimeout(() => setIsDeleting(true), currentPhrase === "DeepCore" ? 3000 : 1500)
 }
-} else if (isDeleting) {
+}
+
+const handleDeleting = () => {
 if (charIndex > 0) {
-const deletingTimeout = setTimeout(() => {
 setDisplayedText(currentPhrase.substring(0, charIndex - 1))
-setCharIndex(charIndex - 1)
-// Immediately change to the next background color when deleting starts
-if (charIndex === currentPhrase.length) {
-setPhraseIndex((prev) => (prev + 1) % phrases.length)
-}
-}, 30)
-return () => clearTimeout(deletingTimeout)
+setCharIndex(prev => prev - 1)
 } else {
-const nextPhraseTimeout = setTimeout(() => {
-setIsTyping(true)
 setIsDeleting(false)
-}, 100)
-return () => clearTimeout(nextPhraseTimeout)
+setPhraseIndex(prev => (prev + 1) % phrases.length)
 }
 }
-}, [charIndex, isTyping, isDeleting, currentPhrase, phraseIndex])
+
+const timeout = setTimeout(() => {
+if (isDeleting) {
+handleDeleting()
+} else {
+handleTyping()
+}
+}, isDeleting ? 30 : 50)
+
+return () => clearTimeout(timeout)
+}, [charIndex, isDeleting, phraseIndex, phrases])
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
@@ -111,11 +105,11 @@ return (
 <div className="flex-grow flex items-center justify-center text-center z-10">
 <AnimatePresence mode="wait">
 <motion.h1
-key={isDeleting ? phraseIndex : displayedText}
-initial={{ opacity: 0, y: -20 }}
-animate={{ opacity: 1, y: 0 }}
-exit={{ opacity: 0, y: 20 }}
-transition={{ duration: 0.3 }}
+key={phraseIndex}
+initial={{ opacity: 0 }}
+animate={{ opacity: 1 }}
+exit={{ opacity: 0 }}
+transition={{ duration: 0.5 }}
 className="text-4xl md:text-6xl font-bold drop-shadow-lg"
 >
 {phrases[phraseIndex].icon}
