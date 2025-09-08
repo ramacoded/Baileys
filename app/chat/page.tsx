@@ -49,7 +49,7 @@ const { id, error } = await response.json()
 if (error) {
 throw new Error(error)
 }
-const canvasCardMessage = {
+const canvasCardMessage: Message = {
 id: uuidv4(),
 role: 'system',
 content: JSON.stringify({ type: 'canvas-card', artifactId: id, title, htmlContent: assistantMessage.content })
