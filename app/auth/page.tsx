@@ -35,53 +35,43 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState('')
-const [phase, setPhase] = useState('TYPING') // TYPING, PAUSING, DELETING
+const [isDeleting, setIsDeleting] = useState(false)
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
 const [submitted, setSubmitted] = useState(false)
 const supabase = createClient()
 
-const currentPhrase = phrases[phraseIndex].text
-const currentBgColor = phrases[phraseIndex].bgColor
+const currentPhrase = phrases[phraseIndex]
+const currentBgColor = currentPhrase.bgColor
 
 useEffect(() => {
+const currentPhraseText = phrases[phraseIndex].text
 let timeoutId: NodeJS.Timeout
 
-switch (phase) {
-case 'TYPING': {
-if (displayedText.length < currentPhrase.length) {
-timeoutId = setTimeout(() => {
-setDisplayedText(currentPhrase.slice(0, displayedText.length + 1))
-}, 60)
-} else {
-const standbyTime = currentPhrase === "DeepCore" ? 5000 : 500
-timeoutId = setTimeout(() => {
-setPhase('PAUSING')
-}, standbyTime)
-}
-break
-}
-case 'PAUSING': {
-timeoutId = setTimeout(() => {
-setPhase('DELETING')
-}, 200)
-break
-}
-case 'DELETING': {
+if (isDeleting) {
 if (displayedText.length > 0) {
 timeoutId = setTimeout(() => {
-setDisplayedText(displayedText.slice(0, -1))
+setDisplayedText(prev => prev.slice(0, -1))
 }, 50)
 } else {
-setPhraseIndex((prevIndex) => (prevIndex + 1) % phrases.length)
-setPhase('TYPING')
+setIsDeleting(false)
+setPhraseIndex(prev => (prev + 1) % phrases.length)
 }
-break
+} else {
+if (displayedText.length < currentPhraseText.length) {
+timeoutId = setTimeout(() => {
+setDisplayedText(prev => currentPhraseText.slice(0, prev.length + 1))
+}, 60)
+} else {
+const standbyTime = currentPhraseText === "DeepCore" ? 5000 : 500
+timeoutId = setTimeout(() => {
+setIsDeleting(true)
+}, standbyTime)
 }
 }
 
 return () => clearTimeout(timeoutId)
-}, [displayedText, phase, phraseIndex, phrases, currentPhrase])
+}, [displayedText, isDeleting, phraseIndex, phrases])
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
@@ -113,13 +103,13 @@ return (
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
-initial={{ opacity: 0, y: -20 }}
-animate={{ opacity: 1, y: 0 }}
-exit={{ opacity: 0, y: 20 }}
-transition={{ duration: 0.4 }}
+initial={{ opacity: 0 }}
+animate={{ opacity: 1 }}
+exit={{ opacity: 0 }}
+transition={{ duration: 0.5 }}
 className="text-4xl md:text-6xl font-bold drop-shadow-lg"
 >
-{phrases[phraseIndex].icon}
+{currentPhrase.icon}
 {displayedText}
 <span
 className="inline-block w-1 h-10 md:h-16 bg-white ml-2 align-middle animate-blink"
