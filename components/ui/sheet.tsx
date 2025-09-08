@@ -14,7 +14,11 @@ React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
 <SheetPrimitive.Overlay
 className={cn(
+<<<<<<< HEAD
 "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out",
+=======
+"fixed inset-0 z-50 bg-muted data-[state=open]:animate-in data-[state=closed]:animate-out",
+>>>>>>> 8ff783dc0c3368d375fc01e47a744a3d79b723f6
 className
 )}
 {...props}
