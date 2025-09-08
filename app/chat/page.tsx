@@ -28,11 +28,12 @@ export default function ChatPage() {
 const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
 const [activeFeature, setActiveFeature] = React.useState('none')
 const [sessionId, setSessionId] = React.useState<string | null>(null)
-const [uploadedFiles, setUploadedFiles] = React.useState([])
+const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([])
 const supabase = createClient()
 const [previewHtml, setPreviewHtml] = React.useState(null)
 
-const handleFinish = async (assistantMessage: Message, newSessionId: string) => {
+const handleFinish = async (assistantMessage: Message) => {
+if (!sessionId) return
 if (activeFeature === 'canvas') {
 const title = prompt("Beri judul untuk Canvas ini:")
 if (!title) {
@@ -55,9 +56,9 @@ role: 'system',
 content: JSON.stringify({ type: 'canvas-card', artifactId: id, title, htmlContent: assistantMessage.content })
 }
 setMessages(prev => [...prev.slice(0, prev.length - 1), canvasCardMessage])
-await saveMessageToDb(newSessionId, 'assistant', canvasCardMessage.content)
+await saveMessageToDb(sessionId, 'assistant', canvasCardMessage.content)
 } else {
-await saveMessageToDb(newSessionId, 'assistant', assistantMessage.content)
+await saveMessageToDb(sessionId, 'assistant', assistantMessage.content)
 }
 }
 
@@ -84,7 +85,7 @@ api: '/api/chat/stream',
 body: {
 activeFeature
 },
-onFinish: (assistantMessage: Message) => handleFinish(assistantMessage, sessionId as string),
+onFinish: handleFinish,
 onError: (error) => {
 toast.error(error.message)
 },
@@ -114,8 +115,8 @@ const userMessageContent = [...fileParts, ...textPart]
 const userMessage = {
 id: uuidv4(),
 role: 'user',
-content: userMessageContent
-}
+content: userMessageContent,
+} as any
 append(userMessage)
 await saveMessageToDb(newSessionId, 'user', JSON.stringify(userMessageContent))
 }
