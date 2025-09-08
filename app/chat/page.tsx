@@ -5,17 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
-import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail } from 'lucide-react'
+import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail, Compass } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from "react-hot-toast"
 
 const phrases = [
-{ text: "Let's design", icon: <Palette className="inline-block mr-2" />, bgColor: "bg-red-400" },
-{ text: "Let's code", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
-{ text: "Let's create", icon: <Wand className="inline-block mr-2" />, bgColor: "bg-green-400" },
-{ text: "Explorate", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-purple-400" },
-{ text: "Let's go", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-orange-400" },
-{ text: "Core AI", icon: <Brain className="inline-block mr-2" />, bgColor: "bg-emerald-400" },
+{ text: "Let's Design", icon: <Palette className="inline-block mr-2" />, bgColor: "bg-red-400" },
+{ text: "Let's Code", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
+{ text: "Let's Create", icon: <Wand className="inline-block mr-2" />, bgColor: "bg-green-400" },
+{ text: "Let's Explore", icon: <Compass className="inline-block mr-2" />, bgColor: "bg-purple-400" },
+{ text: "Let's Go", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-orange-400" },
+{ text: "DeepCore", icon: <Brain className="inline-block mr-2" />, bgColor: "bg-emerald-400" },
 ]
 
 const GoogleIcon = () => (
@@ -35,8 +35,7 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState("")
-const [isTyping, setIsTyping] = useState(true)
-const [charIndex, setCharIndex] = useState(0)
+const [isDeleting, setIsDeleting] = useState(false)
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
 const [submitted, setSubmitted] = useState(false)
@@ -46,31 +45,33 @@ const currentPhrase = phrases[phraseIndex].text
 const currentBgColor = phrases[phraseIndex].bgColor
 
 useEffect(() => {
-if (isTyping && charIndex < currentPhrase.length) {
-const typingTimeout = setTimeout(() => {
-setDisplayedText(currentPhrase.substring(0, charIndex + 1))
-setCharIndex(charIndex + 1)
-}, 50)
-return () => clearTimeout(typingTimeout)
-} else if (isTyping && charIndex === currentPhrase.length) {
-const pauseTimeout = setTimeout(() => {
-setIsTyping(false)
-}, currentPhrase === "Core AI" ? 5000 : 500)
-return () => clearTimeout(pauseTimeout)
-} else if (!isTyping && charIndex > 0) {
-const deletingTimeout = setTimeout(() => {
-setDisplayedText(currentPhrase.substring(0, charIndex - 1))
-setCharIndex(charIndex - 1)
-}, 30)
-return () => clearTimeout(deletingTimeout)
-} else if (!isTyping && charIndex === 0) {
-const nextPhraseTimeout = setTimeout(() => {
-setPhraseIndex((prev) => (prev + 1) % phrases.length)
-setIsTyping(true)
-}, 500)
-return () => clearTimeout(nextPhraseTimeout)
+let timeout: NodeJS.Timeout
+
+if (isDeleting) {
+if (displayedText.length > 0) {
+timeout = setTimeout(() => {
+setDisplayedText(current => current.slice(0, -1))
+}, 30) // Kecepatan hapus
+} else {
+setIsDeleting(false)
+setPhraseIndex(prev => (prev + 1) % phrases.length)
 }
-}, [charIndex, isTyping, currentPhrase, phraseIndex])
+} else {
+if (displayedText.length < currentPhrase.length) {
+timeout = setTimeout(() => {
+setDisplayedText(current => currentPhrase.slice(0, displayedText.length + 1))
+}, 50) // Kecepatan tulis
+} else {
+const standbyTime = currentPhrase === "DeepCore" ? 5000 : 500
+timeout = setTimeout(() => {
+setIsDeleting(true)
+}, standbyTime) // Waktu jeda
+}
+}
+
+return () => clearTimeout(timeout)
+}, [displayedText, isDeleting, phraseIndex, currentPhrase, phrases])
+
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
@@ -97,15 +98,15 @@ setSubmitted(true)
 }
 
 return (
-<div className={`flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-300 ${currentBgColor}`}>
-<div className="flex-grow flex items-center justify-center text-center">
+<div className={`relative flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-1000 ${currentBgColor}`}>
+<div className="flex-grow flex items-center justify-center text-center z-10">
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
-initial={{ opacity: 0, y: -20 }}
+initial={{ opacity: 0, y: 20 }}
 animate={{ opacity: 1, y: 0 }}
-exit={{ opacity: 0, y: 20 }}
-transition={{ duration: 0.3 }}
+exit={{ opacity: 0, y: -20 }}
+transition={{ duration: 0.4 }}
 className="text-4xl md:text-6xl font-bold drop-shadow-lg"
 >
 {phrases[phraseIndex].icon}
@@ -117,7 +118,7 @@ className="inline-block w-1 h-10 md:h-16 bg-white ml-2 align-middle animate-blin
 </AnimatePresence>
 </div>
 
-<div className="w-full max-w-xs space-y-3">
+<div className="w-full max-w-xs space-y-3 z-10">
 <Button
 className="w-full py-3 text-base rounded-full bg-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
 onClick={handleSignInWithGoogle}

@@ -15,7 +15,7 @@ return (
 <Button variant="ghost" size="icon" onClick={onMenuClick} className="md:hidden">
 <Menu className="w-6 h-6" />
 </Button>
-<span className="font-semibold">Core.ai</span>
+<span className="font-semibold">DeepCore</span>
 </div>
 </header>
 )

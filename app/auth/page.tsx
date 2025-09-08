@@ -35,7 +35,6 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState("")
-const [charIndex, setCharIndex] = useState(0)
 const [isDeleting, setIsDeleting] = useState(false)
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
@@ -46,35 +45,33 @@ const currentPhrase = phrases[phraseIndex].text
 const currentBgColor = phrases[phraseIndex].bgColor
 
 useEffect(() => {
-const handleTyping = () => {
-if (charIndex < currentPhrase.length) {
-setDisplayedText(currentPhrase.substring(0, charIndex + 1))
-setCharIndex(prev => prev + 1)
-} else {
-setTimeout(() => setIsDeleting(true), currentPhrase === "DeepCore" ? 3000 : 1500)
-}
-}
+let timeout: NodeJS.Timeout
 
-const handleDeleting = () => {
-if (charIndex > 0) {
-setDisplayedText(currentPhrase.substring(0, charIndex - 1))
-setCharIndex(prev => prev - 1)
+if (isDeleting) {
+if (displayedText.length > 0) {
+timeout = setTimeout(() => {
+setDisplayedText(current => current.slice(0, -1))
+}, 30) // Kecepatan hapus
 } else {
 setIsDeleting(false)
 setPhraseIndex(prev => (prev + 1) % phrases.length)
 }
-}
-
-const timeout = setTimeout(() => {
-if (isDeleting) {
-handleDeleting()
 } else {
-handleTyping()
+if (displayedText.length < currentPhrase.length) {
+timeout = setTimeout(() => {
+setDisplayedText(current => currentPhrase.slice(0, displayedText.length + 1))
+}, 50) // Kecepatan tulis
+} else {
+const standbyTime = currentPhrase === "DeepCore" ? 5000 : 500
+timeout = setTimeout(() => {
+setIsDeleting(true)
+}, standbyTime) // Waktu jeda
 }
-}, isDeleting ? 30 : 50)
+}
 
 return () => clearTimeout(timeout)
-}, [charIndex, isDeleting, phraseIndex, phrases])
+}, [displayedText, isDeleting, phraseIndex, currentPhrase, phrases])
+
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
@@ -106,10 +103,10 @@ return (
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
-initial={{ opacity: 0 }}
-animate={{ opacity: 1 }}
-exit={{ opacity: 0 }}
-transition={{ duration: 0.5 }}
+initial={{ opacity: 0, y: 20 }}
+animate={{ opacity: 1, y: 0 }}
+exit={{ opacity: 0, y: -20 }}
+transition={{ duration: 0.4 }}
 className="text-4xl md:text-6xl font-bold drop-shadow-lg"
 >
 {phrases[phraseIndex].icon}

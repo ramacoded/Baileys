@@ -7,8 +7,8 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-title: "Coreon AI",
-description: "Chatbot AI dengan Gemini dan Next.js",
+title: "DeepCore",
+description: "Chatbot AI with Gemini API",
 }
 
 export default function RootLayout({
