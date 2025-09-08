@@ -138,7 +138,7 @@ Sign in with Email
 </Button>
 </div>
 
-<footer className="w-full text-center text-white/80 text-sm z-10 mt-12">
+<footer className="w-full text-center text-white/80 text-sm z-10 mt-16">
 <div className="flex justify-center items-center space-x-6 mb-2">
 <a href="https://github.com/ramacoded" target="_blank" rel="noopener noreferrer" className="hover:text-white">
 <Github className="w-6 h-6" />
@@ -147,7 +147,7 @@ Sign in with Email
 <Instagram className="w-6 h-6" />
 </a>
 </div>
-<p>&copy; {new Date().getFullYear()} ramacoded</p>
+<p>2025 Copyright By ramacoded.</p>
 </footer>
 
 <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
