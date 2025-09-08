@@ -36,12 +36,15 @@ const [sheetOpen, setSheetOpen] = useState(false)
 const [previewImage, setPreviewImage] = useState<string | null>(null)
 const [isZoomed, setIsZoomed] = useState(false)
 
+const imageFiles = uploadedFiles.filter(f => f.type.startsWith('image/'))
+const otherFiles = uploadedFiles.filter(f => !f.type.startsWith('image/'))
+
 useEffect(() => {
-const objectUrls = uploadedFiles.map(file => URL.createObjectURL(file))
+const objectUrls = imageFiles.map(file => URL.createObjectURL(file))
 return () => {
 objectUrls.forEach(url => URL.revokeObjectURL(url))
 }
-}, [uploadedFiles])
+}, [imageFiles])
 
 const handleFilesSelect = (newFiles: File[]) => {
 setUploadedFiles(prevFiles => {
@@ -51,8 +54,8 @@ return combined.slice(0, 10)
 setSheetOpen(false)
 }
 
-const handleRemoveFile = (indexToRemove: number) => {
-setUploadedFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove))
+const handleRemoveFile = (fileNameToRemove: string) => {
+setUploadedFiles(prevFiles => prevFiles.filter(file => file.name !== fileNameToRemove))
 }
 
 const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -120,21 +123,36 @@ return <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
 return (
 <TooltipProvider delayDuration={0}>
 <footer className="bg-muted border-t">
-{uploadedFiles.length > 0 && (
-<div className="p-2 overflow-x-auto">
+{(imageFiles.length > 0 || otherFiles.length > 0) && (
+<div className="flex flex-col gap-2 p-2">
+{imageFiles.length > 0 && (
+<div className="overflow-x-auto">
 <div className="flex gap-2">
-{uploadedFiles.map((file, index) => {
-const isImage = file.type.startsWith('image/')
-return (
+{imageFiles.map((file, index) => (
 <div key={index} className="relative flex-shrink-0">
-{isImage ? (
 <img
 src={URL.createObjectURL(file)}
 alt={`preview ${index}`}
 className="w-20 h-20 rounded-lg object-cover aspect-square cursor-pointer"
 onClick={() => setPreviewImage(URL.createObjectURL(file))}
 />
-) : (
+<button
+onClick={() => handleRemoveFile(file.name)}
+className="absolute -top-1 -right-1 bg-black/60 text-white rounded-full p-0.5"
+aria-label="Remove file"
+>
+<X className="w-3 h-3" />
+</button>
+</div>
+))}
+</div>
+</div>
+)}
+{otherFiles.length > 0 && (
+<div className="overflow-x-auto">
+<div className="flex gap-2">
+{otherFiles.map((file, index) => (
+<div key={index} className="relative flex-shrink-0">
 <div className="w-48 h-20 rounded-lg bg-zinc-700 flex items-center p-3 text-white">
 {getFileIcon(file.name)}
 <div className="flex flex-col overflow-hidden">
@@ -142,18 +160,18 @@ onClick={() => setPreviewImage(URL.createObjectURL(file))}
 <span className="text-xs text-zinc-400">{(file.size / 1024).toFixed(2)} KB</span>
 </div>
 </div>
-)}
 <button
-onClick={() => handleRemoveFile(index)}
+onClick={() => handleRemoveFile(file.name)}
 className="absolute -top-1 -right-1 bg-black/60 text-white rounded-full p-0.5"
 aria-label="Remove file"
 >
 <X className="w-3 h-3" />
 </button>
 </div>
-)
-})}
+))}
 </div>
+</div>
+)}
 </div>
 )}
 <div className="max-w-3xl mx-auto px-4 py-3">
@@ -175,7 +193,6 @@ aria-label="Remove file"
 <Textarea
 value={input}
 onChange={handleInputChange}
-onKeyDown={handleKeyDown}
 placeholder="Ketik pesan..."
 className="w-full rounded-2xl p-3 pl-12 pr-24 resize-none border-border h-12 min-h-0"
 disabled={isLoading}

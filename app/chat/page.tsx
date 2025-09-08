@@ -35,7 +35,103 @@ body: {
 activeFeature
 },
 async onFinish(assistantMessage) {
-// Logic onFinish yang sudah ada sebelumnya
+let currentSessionId = sessionId
+const lastUserMessage = messages.findLast(m => m.role === 'user')
+
+try {
+if (!currentSessionId && lastUserMessage) {
+const sessionResponse = await fetch('/api/sessions', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ title: lastUserMessage.content.substring(0, 50) })
+})
+if (!sessionResponse.ok) throw new Error('Gagal membuat sesi baru')
+const sessionData = await sessionResponse.json()
+currentSessionId = sessionData.id
+setSessionId(currentSessionId)
+}
+
+if (currentSessionId && lastUserMessage) {
+// Filter out non-text parts for database storage if needed, or convert them
+const userContentForDb = Array.isArray(lastUserMessage.content)
+? lastUserMessage.content.filter(part => typeof part === 'object' && 'text' in part).map(part => part.text).join('\n')
+: lastUserMessage.content;
+
+const assistantContentForDb = Array.isArray(assistantMessage.content)
+? assistantMessage.content.filter(part => typeof part === 'object' && 'text' in part).map(part => part.text).join('\n')
+: assistantMessage.content;
+
+await Promise.all([
+fetch('/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+content: userContentForDb,
+role: 'user',
+session_id: currentSessionId
+})
+}),
+fetch('/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+content: assistantContentForDb,
+role: 'assistant',
+session_id: currentSessionId
+})
+})
+])
+}
+} catch (error) {
+console.error("Gagal menyimpan percakapan:", error)
+toast.error(error instanceof Error ? error.message : "Gagal menyimpan percakapan")
+}
+
+if (activeFeature === 'canvas') {
+toast.loading('Menerima hasil canvas, menyimpan...')
+try {
+const response = await fetch('/api/artifacts', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+htmlContent: assistantMessage.content,
+title: (Array.isArray(lastUserMessage?.content) ? lastUserMessage?.content.filter(part => typeof part === 'object' && 'text' in part).map(part => part.text).join('\n') : lastUserMessage?.content) || "Hasil Canvas Otomatis"
+})
+})
+
+toast.dismiss()
+if (!response.ok) {
+toast.error('Gagal menyimpan ke server.')
+throw new Error(`Server error: ${response.statusText}`)
+}
+
+const data = await response.json()
+
+if (data.id) {
+toast.success('Canvas berhasil disimpan.')
+const artifactMessage: Message = {
+id: Date.now().toString(),
+role: 'system',
+content: JSON.stringify({
+type: 'canvas-card',
+artifactId: data.id,
+title: (Array.isArray(lastUserMessage?.content) ? lastUserMessage?.content.filter(part => typeof part === 'object' && 'text' in part).map(part => part.text).join('\n') : lastUserMessage?.content) || "Hasil Canvas Otomatis",
+htmlContent: assistantMessage.content
+})
+}
+append(artifactMessage)
+} else {
+toast.error('Server tidak mengembalikan ID artifact.')
+}
+} catch (error) {
+toast.dismiss()
+toast.error('Terjadi kesalahan saat menyimpan canvas.')
+console.error(error)
+}
+}
+if (activeFeature !== 'canvas') {
+setActiveFeature('none')
+}
 },
 onError: (error) => {
 toast.error(error.message)
@@ -55,15 +151,15 @@ if (!currentInput && uploadedFiles.length === 0) return
 
 try {
 setUploadedFiles([])
-const parts = await Promise.all(
-[...uploadedFiles.map(fileToGenerativePart),
-{ text: currentInput }]
+const textPart = currentInput ? [{ text: currentInput }] : []
+const fileParts = await Promise.all(
+uploadedFiles.map(fileToGenerativePart)
 )
 
 append({
 id: uuidv4(),
 role: 'user',
-content: parts,
+content: [...fileParts, ...textPart],
 })
 } catch (error) {
 toast.error("Gagal memproses file. Coba lagi.")

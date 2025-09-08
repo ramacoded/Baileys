@@ -7,24 +7,28 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Gemini Chat",
-  description: "Chatbot AI dengan Gemini dan Next.js",
+title: "Coreon AI",
+description: "Chatbot AI dengan Gemini dan Next.js",
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} flex flex-col h-screen`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-         >
-          {children}
-          <Toaster />
-        </ThemeProvider>
-      </body>
-    </html>
-  )
+export default function RootLayout({
+children,
+}: Readonly<{
+children: React.ReactNode
+}>) {
+return (
+<html lang="en" suppressHydrationWarning>
+<body className={`${inter.className} flex flex-col min-h-screen`}>
+<ThemeProvider
+attribute="class"
+defaultTheme="dark"
+enableSystem
+disableTransitionOnChange
+>
+{children}
+<Toaster />
+</ThemeProvider>
+</body>
+</html>
+)
 }
