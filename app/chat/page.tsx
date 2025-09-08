@@ -10,10 +10,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { createClient } from "@/lib/supabase/client"
 
 const fileToGenerativePart = async (file: File) => {
-const base64 = await new Promise((resolve, reject) => {
+const base64 = await new Promise<string>((resolve, reject) => {
 const reader = new FileReader()
 reader.readAsDataURL(file)
-reader.onload = () => resolve(reader.result)
+reader.onload = () => resolve(reader.result as string)
 reader.onerror = (error) => reject(error)
 })
 return {
