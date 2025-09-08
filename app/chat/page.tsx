@@ -9,7 +9,7 @@ import SessionDrawer from "@/components/session-drawer"
 import { v4 as uuidv4 } from 'uuid'
 import { createClient } from "@/lib/supabase/client"
 
-const fileToGenerativePart = async (file) => {
+const fileToGenerativePart = async (file: File) => {
 const base64 = await new Promise((resolve, reject) => {
 const reader = new FileReader()
 reader.readAsDataURL(file)
