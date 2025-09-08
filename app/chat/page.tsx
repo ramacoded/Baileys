@@ -26,7 +26,7 @@ mimeType: file.type,
 
 export default function ChatPage() {
 const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
-const [activeFeature, setActiveFeature] = React.useState('none')
+const [activeFeature, setActiveFeature] = React.useState<ActiveFeature>('none')
 const [sessionId, setSessionId] = React.useState<string | null>(null)
 const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([])
 const supabase = createClient()
