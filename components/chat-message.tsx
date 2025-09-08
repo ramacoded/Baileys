@@ -37,10 +37,10 @@ message.role === "user" ? "justify-end" : "justify-start"
 >
 <div
 className={cn(
-"flex space-x-2 rounded-lg px-3 py-2 max-w-full",
+"flex space-x-2 max-w-full",
 message.role === "user"
-? "bg-primary text-primary-foreground"
-: "bg-muted"
+? "bg-secondary text-secondary-foreground rounded-lg px-3 py-2"
+: ""
 )}
 >
 {message.role === 'assistant' ? (

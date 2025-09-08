@@ -3,13 +3,15 @@
 import { Message } from 'ai'
 import { ChatMessage } from './chat-message'
 import { TypeAnimation } from 'react-type-animation'
+import { TypingIndicator } from './typing-indicator'
 
 interface ChatWindowProps {
 messages: Message[]
+isLoading: boolean
 onPreview: (htmlContent: string) => void
 }
 
-export default function ChatWindow({ messages, onPreview }: ChatWindowProps) {
+export default function ChatWindow({ messages, isLoading, onPreview }: ChatWindowProps) {
 const showWelcome = messages.length === 0
 
 return (
@@ -35,6 +37,7 @@ className="text-3xl md:text-4xl font-bold text-center text-muted-foreground"
 {messages.map(m => (
 <ChatMessage key={m.id} message={m} onPreview={onPreview} />
 ))}
+{isLoading && <TypingIndicator />}
 </div>
 </div>
 </main>

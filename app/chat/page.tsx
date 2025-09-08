@@ -126,13 +126,13 @@ return (
 {isDrawerOpen && (
 <div
 onClick={() => setIsDrawerOpen(false)}
-className="absolute inset-0 bg-muted z-40 md:hidden"
+className="absolute inset-0 bg-black/50 z-40 md:hidden"
 />
 )}
 
 <div className="flex flex-col h-full">
 <AppHeader onMenuClick={() => setIsDrawerOpen(!isDrawerOpen)} />
-<ChatWindow messages={messages} onPreview={() => {}} />
+<ChatWindow messages={messages} isLoading={isLoading} onPreview={() => {}} />
 <Composer
 input={input}
 handleInputChange={handleInputChange}
