@@ -45,32 +45,33 @@ const currentPhrase = phrases[phraseIndex].text
 const currentBgColor = phrases[phraseIndex].bgColor
 
 useEffect(() => {
-let timeout: NodeJS.Timeout
+const currentPhraseText = phrases[phraseIndex].text
+let timeoutId: NodeJS.Timeout
 
 if (isDeleting) {
 if (displayedText.length > 0) {
-timeout = setTimeout(() => {
-setDisplayedText(current => current.slice(0, -1))
+timeoutId = setTimeout(() => {
+setDisplayedText(prev => prev.slice(0, -1))
 }, 50)
 } else {
 setIsDeleting(false)
 setPhraseIndex(prev => (prev + 1) % phrases.length)
 }
 } else {
-if (displayedText.length < currentPhrase.length) {
-timeout = setTimeout(() => {
-setDisplayedText(current => currentPhrase.slice(0, displayedText.length + 1))
+if (displayedText.length < currentPhraseText.length) {
+timeoutId = setTimeout(() => {
+setDisplayedText(prev => currentPhraseText.slice(0, prev.length + 1))
 }, 60)
 } else {
-const standbyTime = currentPhrase === "DeepCore" ? 5000 : 500
-timeout = setTimeout(() => {
+const standbyTime = currentPhraseText === "DeepCore" ? 5000 : 500
+timeoutId = setTimeout(() => {
 setIsDeleting(true)
 }, standbyTime)
 }
 }
 
-return () => clearTimeout(timeout)
-}, [displayedText, isDeleting, phraseIndex, currentPhrase])
+return () => clearTimeout(timeoutId)
+}, [displayedText, isDeleting, phraseIndex, phrases])
 
 
 const handleSignInWithGoogle = async () => {
