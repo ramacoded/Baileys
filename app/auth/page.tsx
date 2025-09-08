@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
-import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail, Compass, Github, Instagram } from 'lucide-react'
+import { Code, Palette, Rocket, Brain, Wand, Mail, Compass, Github, Instagram } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from "react-hot-toast"
 
@@ -35,7 +35,7 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState('')
-const [phase, setPhase] = useState('TYPING')
+const [isTyping, setIsTyping] = useState(true) // State untuk mengontrol apakah sedang mengetik
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
 const [submitted, setSubmitted] = useState(false)
@@ -45,36 +45,37 @@ const currentPhrase = phrases[phraseIndex]
 const currentBgColor = currentPhrase.bgColor
 
 useEffect(() => {
-const currentPhraseText = phrases[phraseIndex].text
 let timeoutId: NodeJS.Timeout
+let charIndex = displayedText.length
 
-if (phase === 'TYPING') {
-if (displayedText.length < currentPhraseText.length) {
+if (isTyping) {
+// Logic untuk mengetik
+if (charIndex < currentPhrase.text.length) {
 timeoutId = setTimeout(() => {
-setDisplayedText(prev => currentPhraseText.slice(0, prev.length + 1))
-}, 60)
+setDisplayedText(currentPhrase.text.slice(0, charIndex + 1))
+}, 60) // Kecepatan mengetik
 } else {
-const standbyTime = currentPhraseText === "DeepCore" ? 5000 : 500
+const standbyTime = currentPhrase.text === "DeepCore" ? 5000 : 500
 timeoutId = setTimeout(() => {
-setPhase('PAUSING')
+setIsTyping(false) // Selesai mengetik, mulai menghapus
 }, standbyTime)
 }
-} else if (phase === 'PAUSING') {
+} else {
+// Logic untuk menghapus
+if (charIndex > 0) {
 timeoutId = setTimeout(() => {
-setPhase('DELETING')
-}, 200)
-} else if (phase === 'DELETING') {
-if (displayedText.length > 0) {
-timeoutId = setTimeout(() => {
-setDisplayedText(prev => prev.slice(0, -1))
-}, 50)
+setDisplayedText(currentPhrase.text.slice(0, charIndex - 1))
+}, 50) // Kecepatan menghapus
 } else {
 setPhraseIndex(prevIndex => (prevIndex + 1) % phrases.length)
-setPhase('TYPING')
+setDisplayedText('') // Reset teks saat pindah ke frase berikutnya
+setIsTyping(true) // Mulai mengetik lagi untuk frase baru
 }
 }
+
 return () => clearTimeout(timeoutId)
-}, [displayedText, phase, phraseIndex, phrases, currentPhrase])
+}, [displayedText, phraseIndex, isTyping, currentPhrase])
+
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
@@ -101,8 +102,9 @@ setSubmitted(true)
 }
 
 return (
-<div className={`relative flex flex-col items-center justify-between min-h-screen p-8 text-white transition-colors duration-1000 ${currentBgColor}`}>
-<div className="flex-grow flex items-center justify-center text-center z-10">
+<div className={`relative flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-1000 ${currentBgColor}`}>
+{/* Teks Animasi - dipusatkan secara vertikal dan horizontal */}
+<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-center z-10">
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
@@ -121,7 +123,8 @@ className="inline-block w-1 h-10 md:h-16 bg-white ml-2 align-middle animate-blin
 </AnimatePresence>
 </div>
 
-<div className="w-full max-w-xs space-y-3 z-10">
+{/* Tombol Sign In - dipusatkan dan ditempatkan di atas footer */}
+<div className="absolute bottom-32 w-full max-w-xs space-y-3 z-10 flex flex-col items-center">
 <Button
 className="w-full py-3 text-base rounded-full bg-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
 onClick={handleSignInWithGoogle}
@@ -138,7 +141,8 @@ Sign in with Email
 </Button>
 </div>
 
-<footer className="w-full text-center text-white/80 text-sm z-10 mt-16">
+{/* Footer */}
+<footer className="absolute bottom-8 w-full text-center text-white/80 text-sm z-10">
 <div className="flex justify-center items-center space-x-6 mb-2">
 <a href="https://github.com/ramacoded" target="_blank" rel="noopener noreferrer" className="hover:text-white">
 <Github className="w-6 h-6" />
@@ -147,7 +151,7 @@ Sign in with Email
 <Instagram className="w-6 h-6" />
 </a>
 </div>
-<p>2025 Copyright By ramacoded.</p>
+<p>© 2025 Copyright By ramacoded.</p>
 </footer>
 
 <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
