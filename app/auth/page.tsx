@@ -32,13 +32,6 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 </svg>
 )
 
-const TikTokIcon = () => (
-<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-<path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.01-1.58-.01-3.16 0-4.75l-.04 1.78c-.62-.38-1.25-.76-1.88-1.14-.38-1.62-1.15-3.19-2.36-4.32Z"/>
-<path d="M12.525 0c-1.31.02-2.61.01-3.91.02v14.23c-1.39.43-2.83.7-4.29.82v4.03c.87-.06 1.74-.18 2.6-.37.17-2.45.69-4.88 1.69-7.14.3-1.68 1.15-3.33 2.38-4.75Z"/>
-</svg>
-)
-
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState('')
@@ -113,10 +106,10 @@ return (
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
-initial={{ opacity: 0, y: -20 }}
-animate={{ opacity: 1, y: 0 }}
-exit={{ opacity: 0, y: 20 }}
-transition={{ duration: 0.4 }}
+initial={{ opacity: 0 }}
+animate={{ opacity: 1 }}
+exit={{ opacity: 0 }}
+transition={{ duration: 0.5 }}
 className="text-4xl md:text-6xl font-bold drop-shadow-lg"
 >
 {currentPhrase.icon}
@@ -145,7 +138,7 @@ Sign in with Email
 </Button>
 </div>
 
-<footer className="w-full text-center text-white/80 text-sm z-10">
+<footer className="w-full text-center text-white/80 text-sm z-10 mt-12">
 <div className="flex justify-center items-center space-x-6 mb-2">
 <a href="https://github.com/ramacoded" target="_blank" rel="noopener noreferrer" className="hover:text-white">
 <Github className="w-6 h-6" />
@@ -153,11 +146,8 @@ Sign in with Email
 <a href="https://www.instagram.com/pokessz" target="_blank" rel="noopener noreferrer" className="hover:text-white">
 <Instagram className="w-6 h-6" />
 </a>
-<a href="https://www.tiktok.com/@udahtapibelum" target="_blank" rel="noopener noreferrer" className="hover:text-white">
-<TikTokIcon />
-</a>
 </div>
-<p>&copy; {new Date().getFullYear()} Copyright By ramacoded</p>
+<p>&copy; {new Date().getFullYear()} ramacoded</p>
 </footer>
 
 <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
