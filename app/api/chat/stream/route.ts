@@ -7,7 +7,6 @@ export const runtime = 'edge'
 
 type ActiveFeature = 'none' | 'canvas' | 'image-gen'
 
-// Fungsi untuk mengubah pesan dari format Vercel AI SDK ke format Google
 const toGoogleGenerativeAIMessage = (message: Message) => {
 if (typeof message.content === 'string') {
 return {
@@ -16,8 +15,7 @@ parts: [{ text: message.content }],
 }
 }
 
-// Menangani konten multimodal
-const parts = message.content.map((part) => {
+const parts = (message.content as any[]).map((part: any) => {
 if ('text' in part) {
 return { text: part.text }
 }
@@ -38,7 +36,7 @@ parts: parts,
 export async function POST(req: Request) {
 const { messages, activeFeature }: { messages: Message[], activeFeature: ActiveFeature } = await req.json()
 
-let modelToUse = 'gemini-pro-vision' // Ganti ke model yang mendukung visi
+let modelToUse = 'gemini-pro-vision'
 let systemInstruction = ''
 
 if (activeFeature === 'canvas') {
@@ -58,7 +56,7 @@ systemInstruction: systemInstruction
 .generateContentStream({
 contents: messages
 .filter(m => m.role !== 'system')
-.map(toGoogleGenerativeAIMessage)
+.map(toGoogleGenerativeAIMessage as any)
 })
 
 const stream = GoogleGenerativeAIStream(geminiStream)
