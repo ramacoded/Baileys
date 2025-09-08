@@ -13,7 +13,7 @@ onPreview: (htmlContent: string) => void
 export function ChatMessage({ message, ...props }: ChatMessageProps) {
 if (message.role === 'system') {
 try {
-const parsedContent = JSON.parse(message.content)
+const parsedContent = JSON.parse(message.content as string)
 if (parsedContent.type === 'canvas-card') {
 return <CanvasCard {...parsedContent} />
 }
@@ -23,7 +23,16 @@ return <CanvasCard {...parsedContent} />
 return null
 }
 
-if (message.role === 'assistant' && message.content.trim().startsWith('<!DOCTYPE html>')) {
+// Ekstrak konten teks, baik itu string maupun bagian dari array
+let textContent = ''
+if (typeof message.content === 'string') {
+textContent = message.content
+} else if (Array.isArray(message.content)) {
+const textPart = message.content.find(part => 'text' in part)
+textContent = textPart ? textPart.text : ''
+}
+
+if (message.role === 'assistant' && textContent.trim().startsWith('<!DOCTYPE html>')) {
 return null
 }
 
@@ -63,11 +72,11 @@ return <code className={className} {...props}>{children}</code>
 },
 }}
 >
-{message.content}
+{textContent}
 </ReactMarkdown>
 </article>
 ) : (
-<span className="break-words whitespace-pre-wrap">{message.content}</span>
+<span className="break-words whitespace-pre-wrap">{textContent}</span>
 )}
 </div>
 </div>

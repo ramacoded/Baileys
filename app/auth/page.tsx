@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
-import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail, Compass } from 'lucide-react'
+import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail, Compass, Github, Instagram } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from "react-hot-toast"
 
@@ -32,10 +32,17 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 </svg>
 )
 
+const TikTokIcon = () => (
+<svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+<path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.01-1.58-.01-3.16 0-4.75l-.04 1.78c-.62-.38-1.25-.76-1.88-1.14-.38-1.62-1.15-3.19-2.36-4.32Z"/>
+<path d="M12.525 0c-1.31.02-2.61.01-3.91.02v14.23c-1.39.43-2.83.7-4.29.82v4.03c.87-.06 1.74-.18 2.6-.37.17-2.45.69-4.88 1.69-7.14.3-1.68 1.15-3.33 2.38-4.75Z"/>
+</svg>
+)
+
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState('')
-const [isDeleting, setIsDeleting] = useState(false)
+const [phase, setPhase] = useState('TYPING')
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
 const [submitted, setSubmitted] = useState(false)
@@ -48,16 +55,7 @@ useEffect(() => {
 const currentPhraseText = phrases[phraseIndex].text
 let timeoutId: NodeJS.Timeout
 
-if (isDeleting) {
-if (displayedText.length > 0) {
-timeoutId = setTimeout(() => {
-setDisplayedText(prev => prev.slice(0, -1))
-}, 50)
-} else {
-setIsDeleting(false)
-setPhraseIndex(prev => (prev + 1) % phrases.length)
-}
-} else {
+if (phase === 'TYPING') {
 if (displayedText.length < currentPhraseText.length) {
 timeoutId = setTimeout(() => {
 setDisplayedText(prev => currentPhraseText.slice(0, prev.length + 1))
@@ -65,13 +63,25 @@ setDisplayedText(prev => currentPhraseText.slice(0, prev.length + 1))
 } else {
 const standbyTime = currentPhraseText === "DeepCore" ? 5000 : 500
 timeoutId = setTimeout(() => {
-setIsDeleting(true)
+setPhase('PAUSING')
 }, standbyTime)
 }
+} else if (phase === 'PAUSING') {
+timeoutId = setTimeout(() => {
+setPhase('DELETING')
+}, 200)
+} else if (phase === 'DELETING') {
+if (displayedText.length > 0) {
+timeoutId = setTimeout(() => {
+setDisplayedText(prev => prev.slice(0, -1))
+}, 50)
+} else {
+setPhraseIndex(prevIndex => (prevIndex + 1) % phrases.length)
+setPhase('TYPING')
 }
-
+}
 return () => clearTimeout(timeoutId)
-}, [displayedText, isDeleting, phraseIndex, phrases])
+}, [displayedText, phase, phraseIndex, phrases, currentPhrase])
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
@@ -98,15 +108,15 @@ setSubmitted(true)
 }
 
 return (
-<div className={`relative flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-1000 ${currentBgColor}`}>
+<div className={`relative flex flex-col items-center justify-between min-h-screen p-8 text-white transition-colors duration-1000 ${currentBgColor}`}>
 <div className="flex-grow flex items-center justify-center text-center z-10">
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
-initial={{ opacity: 0 }}
-animate={{ opacity: 1 }}
-exit={{ opacity: 0 }}
-transition={{ duration: 0.5 }}
+initial={{ opacity: 0, y: -20 }}
+animate={{ opacity: 1, y: 0 }}
+exit={{ opacity: 0, y: 20 }}
+transition={{ duration: 0.4 }}
 className="text-4xl md:text-6xl font-bold drop-shadow-lg"
 >
 {currentPhrase.icon}
@@ -134,6 +144,21 @@ onClick={() => setIsEmailDialogOpen(true)}
 Sign in with Email
 </Button>
 </div>
+
+<footer className="w-full text-center text-white/80 text-sm z-10">
+<div className="flex justify-center items-center space-x-6 mb-2">
+<a href="https://github.com/ramacoded" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+<Github className="w-6 h-6" />
+</a>
+<a href="https://www.instagram.com/pokessz" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+<Instagram className="w-6 h-6" />
+</a>
+<a href="https://www.tiktok.com/@udahtapibelum" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+<TikTokIcon />
+</a>
+</div>
+<p>&copy; {new Date().getFullYear()} Copyright By ramacoded</p>
+</footer>
 
 <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
 <DialogContent className="sm:max-w-md bg-white text-black">
