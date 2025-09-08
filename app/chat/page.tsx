@@ -67,7 +67,7 @@ setSessionId(null)
 setUploadedFiles([])
 }
 
-const saveMessageToDb = async (sessionId, role, content) => {
+const saveMessageToDb = async (sessionId: string, role: string, content: string) => {
 try {
 await fetch('/api/messages', {
 method: 'POST',
@@ -90,7 +90,7 @@ toast.error(error.message)
 },
 })
 
-const handleCustomSubmit = async (e) => {
+const handleCustomSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 e.preventDefault()
 const currentInput = input
 if (!currentInput && uploadedFiles.length === 0) return
