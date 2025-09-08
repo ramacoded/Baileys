@@ -34,8 +34,8 @@ l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"
 
 export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
-const [displayedText, setDisplayedText] = useState("")
-const [isDeleting, setIsDeleting] = useState(false)
+const [displayedText, setDisplayedText] = useState('')
+const [phase, setPhase] = useState('TYPING') // TYPING, PAUSING, DELETING
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
 const [submitted, setSubmitted] = useState(false)
@@ -45,34 +45,43 @@ const currentPhrase = phrases[phraseIndex].text
 const currentBgColor = phrases[phraseIndex].bgColor
 
 useEffect(() => {
-const currentPhraseText = phrases[phraseIndex].text
 let timeoutId: NodeJS.Timeout
 
-if (isDeleting) {
-if (displayedText.length > 0) {
+switch (phase) {
+case 'TYPING': {
+if (displayedText.length < currentPhrase.length) {
 timeoutId = setTimeout(() => {
-setDisplayedText(prev => prev.slice(0, -1))
-}, 50)
-} else {
-setIsDeleting(false)
-setPhraseIndex(prev => (prev + 1) % phrases.length)
-}
-} else {
-if (displayedText.length < currentPhraseText.length) {
-timeoutId = setTimeout(() => {
-setDisplayedText(prev => currentPhraseText.slice(0, prev.length + 1))
+setDisplayedText(currentPhrase.slice(0, displayedText.length + 1))
 }, 60)
 } else {
-const standbyTime = currentPhraseText === "DeepCore" ? 5000 : 500
+const standbyTime = currentPhrase === "DeepCore" ? 5000 : 500
 timeoutId = setTimeout(() => {
-setIsDeleting(true)
+setPhase('PAUSING')
 }, standbyTime)
+}
+break
+}
+case 'PAUSING': {
+timeoutId = setTimeout(() => {
+setPhase('DELETING')
+}, 200)
+break
+}
+case 'DELETING': {
+if (displayedText.length > 0) {
+timeoutId = setTimeout(() => {
+setDisplayedText(displayedText.slice(0, -1))
+}, 50)
+} else {
+setPhraseIndex((prevIndex) => (prevIndex + 1) % phrases.length)
+setPhase('TYPING')
+}
+break
 }
 }
 
 return () => clearTimeout(timeoutId)
-}, [displayedText, isDeleting, phraseIndex, phrases])
-
+}, [displayedText, phase, phraseIndex, phrases, currentPhrase])
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
