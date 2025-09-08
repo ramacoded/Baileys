@@ -11,11 +11,11 @@ import { toast } from "react-hot-toast"
 
 const phrases = [
 { text: "Let's Design", icon: <Palette className="inline-block mr-2" />, bgColor: "bg-red-400" },
-{ text: "Let's Coding", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
+{ text: "Let's Code", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
 { text: "Let's Create", icon: <Wand className="inline-block mr-2" />, bgColor: "bg-green-400" },
 { text: "Let's Explorate", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-purple-400" },
 { text: "Let's Go", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-orange-400" },
-{ text: "Core AI", icon: <Brain className="inline-block mr-2" />, bgColor: "bg-emerald-400" },
+{ text: "DeepCore", icon: <Brain className="inline-block mr-2" />, bgColor: "bg-emerald-400" },
 ]
 
 const GoogleIcon = () => (
@@ -36,6 +36,7 @@ export default function LandingPage() {
 const [phraseIndex, setPhraseIndex] = useState(0)
 const [displayedText, setDisplayedText] = useState("")
 const [isTyping, setIsTyping] = useState(true)
+const [isDeleting, setIsDeleting] = useState(false)
 const [charIndex, setCharIndex] = useState(0)
 const [email, setEmail] = useState('')
 const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
@@ -46,31 +47,37 @@ const currentPhrase = phrases[phraseIndex].text
 const currentBgColor = phrases[phraseIndex].bgColor
 
 useEffect(() => {
-if (isTyping && charIndex < currentPhrase.length) {
+if (isTyping) {
+if (charIndex < currentPhrase.length) {
 const typingTimeout = setTimeout(() => {
 setDisplayedText(currentPhrase.substring(0, charIndex + 1))
 setCharIndex(charIndex + 1)
 }, 50)
 return () => clearTimeout(typingTimeout)
-} else if (isTyping && charIndex === currentPhrase.length) {
+} else {
 const pauseTimeout = setTimeout(() => {
 setIsTyping(false)
-}, currentPhrase === "Core AI" ? 5000 : 500)
+setIsDeleting(true)
+}, currentPhrase === "DeepCore" ? 5000 : 500)
 return () => clearTimeout(pauseTimeout)
-} else if (!isTyping && charIndex > 0) {
+}
+} else if (isDeleting) {
+if (charIndex > 0) {
 const deletingTimeout = setTimeout(() => {
 setDisplayedText(currentPhrase.substring(0, charIndex - 1))
 setCharIndex(charIndex - 1)
 }, 30)
 return () => clearTimeout(deletingTimeout)
-} else if (!isTyping && charIndex === 0) {
+} else {
 const nextPhraseTimeout = setTimeout(() => {
 setPhraseIndex((prev) => (prev + 1) % phrases.length)
 setIsTyping(true)
+setIsDeleting(false)
 }, 500)
 return () => clearTimeout(nextPhraseTimeout)
 }
-}, [charIndex, isTyping, currentPhrase, phraseIndex])
+}
+}, [charIndex, isTyping, isDeleting, currentPhrase, phraseIndex])
 
 const handleSignInWithGoogle = async () => {
 await supabase.auth.signInWithOAuth({
@@ -97,8 +104,16 @@ setSubmitted(true)
 }
 
 return (
-<div className={`flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-300 ${currentBgColor}`}>
-<div className="flex-grow flex items-center justify-center text-center">
+<div className={`relative flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-300 ${currentBgColor}`}>
+<motion.div
+key={phraseIndex}
+initial={{ scale: 0, opacity: 0 }}
+animate={{ scale: 1, opacity: 1 }}
+exit={{ scale: 2, opacity: 0 }}
+transition={{ duration: 0.8, ease: "easeInOut" }}
+className={`absolute inset-0 z-0 ${currentBgColor}`}
+/>
+<div className="flex-grow flex items-center justify-center text-center z-10">
 <AnimatePresence mode="wait">
 <motion.h1
 key={phraseIndex}
@@ -117,7 +132,7 @@ className="inline-block w-1 h-10 md:h-16 bg-white ml-2 align-middle animate-blin
 </AnimatePresence>
 </div>
 
-<div className="w-full max-w-xs space-y-3">
+<div className="w-full max-w-xs space-y-3 z-10">
 <Button
 className="w-full py-3 text-base rounded-full bg-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
 onClick={handleSignInWithGoogle}
