@@ -14,7 +14,7 @@ React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 <DialogPrimitive.Overlay
 ref={ref}
 className={cn(
-"fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out",
+"fixed inset-0 z-50 bg-background data-[state=open]:animate-in data-[state=closed]:animate-out",
 className
 )}
 {...props}

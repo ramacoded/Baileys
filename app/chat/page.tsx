@@ -80,7 +80,7 @@ return (
 {isDrawerOpen && (
 <div
 onClick={() => setIsDrawerOpen(false)}
-className="absolute inset-0 bg-black/50 z-40 md:hidden"
+className="absolute inset-0 bg-background z-40 md:hidden"
 />
 )}
 

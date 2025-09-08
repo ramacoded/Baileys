@@ -36,11 +36,10 @@ parts: parts,
 export async function POST(req: Request) {
 const { messages, activeFeature }: { messages: Message[], activeFeature: ActiveFeature } = await req.json()
 
-let modelToUse = 'gemini-pro-vision'
+let modelToUse = 'gemini-2.5-flash'
 let systemInstruction = ''
 
 if (activeFeature === 'canvas') {
-modelToUse = 'gemini-2.5-flash'
 systemInstruction = 'PERHATIAN: Anda adalah mesin render HTML. JANGAN menulis satu kata pun penjelasan. JANGAN gunakan Markdown. Respons HANYA dengan satu blok kode HTML lengkap yang dimulai dengan `<!DOCTYPE html>`. KESALAHAN APAPUN AKAN MERUSAK APLIKASI.'
 } else if (activeFeature === 'image-gen') {
 const latestUserMessage = messages[messages.length - 1]
