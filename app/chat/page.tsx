@@ -32,7 +32,7 @@ const [uploadedFiles, setUploadedFiles] = React.useState([])
 const supabase = createClient()
 const [previewHtml, setPreviewHtml] = React.useState(null)
 
-const handleFinish = async (assistantMessage) => {
+const handleFinish = async (assistantMessage: Message) => {
 if (activeFeature === 'canvas') {
 const title = prompt("Beri judul untuk Canvas ini:")
 if (!title) {
