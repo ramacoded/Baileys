@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
-import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail } from 'lucide-react'
+import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail, Compass } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from "react-hot-toast"
 
@@ -13,7 +13,7 @@ const phrases = [
 { text: "Let's Design", icon: <Palette className="inline-block mr-2" />, bgColor: "bg-red-400" },
 { text: "Let's Code", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
 { text: "Let's Create", icon: <Wand className="inline-block mr-2" />, bgColor: "bg-green-400" },
-{ text: "Let's Explorate", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-purple-400" },
+{ text: "Let's Explore", icon: <Compass className="inline-block mr-2" />, bgColor: "bg-purple-400" },
 { text: "Let's Go", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-orange-400" },
 { text: "DeepCore", icon: <Brain className="inline-block mr-2" />, bgColor: "bg-emerald-400" },
 ]
@@ -66,14 +66,17 @@ if (charIndex > 0) {
 const deletingTimeout = setTimeout(() => {
 setDisplayedText(currentPhrase.substring(0, charIndex - 1))
 setCharIndex(charIndex - 1)
+// Immediately change to the next background color when deleting starts
+if (charIndex === currentPhrase.length) {
+setPhraseIndex((prev) => (prev + 1) % phrases.length)
+}
 }, 30)
 return () => clearTimeout(deletingTimeout)
 } else {
 const nextPhraseTimeout = setTimeout(() => {
-setPhraseIndex((prev) => (prev + 1) % phrases.length)
 setIsTyping(true)
 setIsDeleting(false)
-}, 500)
+}, 100)
 return () => clearTimeout(nextPhraseTimeout)
 }
 }
@@ -104,19 +107,11 @@ setSubmitted(true)
 }
 
 return (
-<div className={`relative flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-300 ${currentBgColor}`}>
-<motion.div
-key={phraseIndex}
-initial={{ scale: 0, opacity: 0 }}
-animate={{ scale: 1, opacity: 1 }}
-exit={{ scale: 2, opacity: 0 }}
-transition={{ duration: 0.8, ease: "easeInOut" }}
-className={`absolute inset-0 z-0 ${currentBgColor}`}
-/>
+<div className={`relative flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-1000 ${currentBgColor}`}>
 <div className="flex-grow flex items-center justify-center text-center z-10">
 <AnimatePresence mode="wait">
 <motion.h1
-key={phraseIndex}
+key={isDeleting ? phraseIndex : displayedText}
 initial={{ opacity: 0, y: -20 }}
 animate={{ opacity: 1, y: 0 }}
 exit={{ opacity: 0, y: 20 }}
