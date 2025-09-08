@@ -1,0 +1,2381 @@
+Project context for /storage/emulated/0/Download/chatbot
+
+
+--- START FILE: README.md ---
+
+# chatbot-ai
+
+--- START FILE: app/api/artifacts/route.ts ---
+
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+const { htmlContent, title } = await request.json()
+const supabase = createClient()
+
+const { data: { user } } = await supabase.auth.getUser()
+
+if (!user) {
+return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+}
+
+const { data, error } = await supabase
+.from('artifacts')
+.insert({
+kind: 'html_preview',
+content: htmlContent,
+title: title,
+user_id: user.id
+})
+.select('id')
+.single()
+
+if (error) {
+console.error('Error saving artifact:', error)
+return NextResponse.json({ error: error.message }, { status: 500 })
+}
+
+return NextResponse.json({ id: data.id })
+                         }
+
+
+--- START FILE: app/api/canvas/[id]/page.tsx ---
+
+import { createClient } from '@/lib/supabase/server'
+import { notFound } from 'next/navigation'
+
+export const revalidate = 0
+
+async function getArtifactContent(id: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('artifacts')
+    .select('content')
+    .eq('id', id)
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+  return data.content
+}
+
+export default async function CanvasPreviewPage({ params }: { params: { id: string } }) {
+  const htmlContent = await getArtifactContent(params.id)
+
+  if (!htmlContent) {
+    return notFound()
+  }
+
+  return (
+    <div className="w-full h-screen">
+      <iframe
+        srcDoc={htmlContent}
+        title="Canvas Preview"
+        sandbox="allow-scripts" // Security sandbox
+        className="w-full h-full border-0"
+      />
+    </div>
+  )
+                                                }
+
+
+--- START FILE: app/api/chat/stream/route.ts ---
+
+import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAIStream, Message, StreamingTextResponse } from 'ai'
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+
+export const runtime = 'edge'
+
+type ActiveFeature = 'none' | 'canvas' | 'image-gen'
+
+export async function POST(req: Request) {
+  const { messages, activeFeature }: { messages: Message[], activeFeature: ActiveFeature } = await req.json()
+
+  let modelToUse = 'gemini-2.5-flash'
+  let systemInstruction = ''
+
+  if (activeFeature === 'canvas') {
+    // Instruksi sistem yang lebih ketat untuk Canvas
+    systemInstruction = 'PERHATIAN: Anda adalah mesin render HTML. JANGAN menulis satu kata pun penjelasan. JANGAN gunakan Markdown. Respons HANYA dengan satu blok kode HTML lengkap yang dimulai dengan `<!DOCTYPE html>`. KESALAHAN APAPUN AKAN MERUSAK APLIKASI.'
+  } else if (activeFeature === 'image-gen') {
+    const latestUserMessage = messages[messages.length - 1]
+    const imageGenPrompt = `Anda adalah AI generator gambar. Abaikan percakapan sebelumnya. Buat deskripsi detail untuk gambar berdasarkan prompt berikut, lalu buat link gambar Markdown dari placeholder.com. Prompt: "${latestUserMessage.content}"`
+    messages[messages.length - 1].content = imageGenPrompt
+  }
+
+  const geminiStream = await genAI
+    .getGenerativeModel({ 
+      model: modelToUse,
+      // Sisipkan instruksi sistem di sini
+      systemInstruction: systemInstruction 
+    })
+    .generateContentStream({
+      contents: messages
+        .filter(m => m.role !== 'system')
+        .map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.content }],
+        })),
+    })
+
+  const stream = GoogleGenerativeAIStream(geminiStream)
+  return new StreamingTextResponse(stream)
+}
+
+
+--- START FILE: app/api/messages/route.ts ---
+
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+const { session_id, role, content } = await request.json()
+const supabase = createClient()
+
+const { data: { user } } = await supabase.auth.getUser()
+if (!user) {
+return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+}
+
+if (!session_id || !role || !content) {
+return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+}
+
+const { error } = await supabase
+.from('messages')
+.insert({ session_id, role, content })
+
+if (error) {
+console.error('Error saving message:', error)
+return NextResponse.json({ error: error.message }, { status: 500 })
+}
+
+return NextResponse.json({ success: true })
+}
+
+--- START FILE: app/api/sessions/route.ts ---
+
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+export async function GET() {
+const supabase = createClient()
+const { data: { user } } = await supabase.auth.getUser()
+
+if (!user) {
+return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+}
+
+const { data, error } = await supabase
+.from('sessions')
+.select('id, title')
+.eq('user_id', user.id)
+.order('created_at', { ascending: false })
+
+if (error) {
+return NextResponse.json({ error: error.message }, { status: 500 })
+}
+
+return NextResponse.json(data)
+}
+
+export async function POST(request: Request) {
+const { title } = await request.json()
+const supabase = createClient()
+
+const { data: { user } } = await supabase.auth.getUser()
+
+if (!user) {
+return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+}
+
+const { data, error } = await supabase
+.from('sessions')
+.insert({ title: title, user_id: user.id })
+.select('id')
+.single()
+
+if (error) {
+return NextResponse.json({ error: error.message }, { status: 500 })
+}
+
+return NextResponse.json({ id: data.id })
+}
+
+--- START FILE: app/auth/callback/route.ts ---
+
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+export async function GET(request: Request) {
+const { searchParams, origin } = new URL(request.url)
+const code = searchParams.get('code')
+const next = searchParams.get('next') ?? '/chat'
+if (code) {
+const supabase = createClient()
+const { error } = await supabase.auth.exchangeCodeForSession(code)
+if (!error) {
+return NextResponse.redirect(`${origin}${next}`)
+}
+}
+return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+}
+
+--- START FILE: app/chat/page.tsx ---
+
+"use client"
+import * as React from "react"
+import { useChat, type Message } from "ai/react"
+import { toast } from "react-hot-toast"
+import ChatWindow from "@/components/chat-window"
+import AppHeader from "@/components/app-header"
+import Composer, { type ActiveFeature } from "@/components/composer"
+import SessionDrawer from "@/components/session-drawer"
+
+export default function ChatPage() {
+const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
+const [activeFeature, setActiveFeature] = React.useState<ActiveFeature>('none')
+const [sessionId, setSessionId] = React.useState<string | null>(null)
+
+const { messages, input, handleInputChange, handleSubmit, isLoading, append, setMessages } = useChat({
+api: '/api/chat/stream',
+body: {
+activeFeature
+},
+async onFinish(assistantMessage) {
+let currentSessionId = sessionId
+const lastUserMessage = messages.findLast(m => m.role === 'user')
+
+try {
+if (!currentSessionId && lastUserMessage) {
+const sessionResponse = await fetch('/api/sessions', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ title: lastUserMessage.content.substring(0, 50) })
+})
+if (!sessionResponse.ok) throw new Error('Gagal membuat sesi baru')
+const sessionData = await sessionResponse.json()
+currentSessionId = sessionData.id
+setSessionId(currentSessionId)
+}
+
+if (currentSessionId && lastUserMessage) {
+await Promise.all([
+fetch('/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+content: lastUserMessage.content,
+role: 'user',
+session_id: currentSessionId
+})
+}),
+fetch('/api/messages', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+content: assistantMessage.content,
+role: 'assistant',
+session_id: currentSessionId
+})
+})
+])
+}
+} catch (error) {
+console.error("Gagal menyimpan percakapan:", error)
+toast.error(error instanceof Error ? error.message : "Gagal menyimpan percakapan")
+}
+
+if (activeFeature === 'canvas') {
+toast.loading('Menerima hasil canvas, menyimpan...')
+try {
+const response = await fetch('/api/artifacts', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+htmlContent: assistantMessage.content,
+title: lastUserMessage?.content || "Hasil Canvas Otomatis"
+})
+})
+
+toast.dismiss()
+if (!response.ok) {
+toast.error('Gagal menyimpan ke server.')
+throw new Error(`Server error: ${response.statusText}`)
+}
+
+const data = await response.json()
+
+if (data.id) {
+toast.success('Canvas berhasil disimpan.')
+const artifactMessage: Message = {
+id: Date.now().toString(),
+role: 'system',
+content: JSON.stringify({
+type: 'canvas-card',
+artifactId: data.id,
+title: lastUserMessage?.content || "Hasil Canvas Otomatis",
+htmlContent: assistantMessage.content
+})
+}
+append(artifactMessage)
+} else {
+toast.error('Server tidak mengembalikan ID artifact.')
+}
+} catch (error) {
+toast.dismiss()
+toast.error('Terjadi kesalahan saat menyimpan canvas.')
+console.error(error)
+}
+}
+if (activeFeature !== 'canvas') {
+setActiveFeature('none')
+}
+},
+onError: (error) => {
+toast.error(error.message)
+},
+})
+
+const handleNewSession = () => {
+setMessages([])
+setSessionId(null)
+}
+
+return (
+<div className="h-screen w-full relative overflow-hidden bg-background">
+<div className={`absolute top-0 left-0 h-full bg-background border-r z-50 w-72 transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+<SessionDrawer onNewSession={handleNewSession} />
+</div>
+
+{isDrawerOpen && (
+<div
+onClick={() => setIsDrawerOpen(false)}
+className="absolute inset-0 bg-muted z-40 md:hidden"
+/>
+)}
+
+<div className="flex flex-col h-full">
+<AppHeader onMenuClick={() => setIsDrawerOpen(!isDrawerOpen)} />
+<ChatWindow messages={messages} onPreview={() => {}} />
+<Composer
+input={input}
+handleInputChange={handleInputChange}
+handleSubmit={handleSubmit}
+isLoading={isLoading}
+activeFeature={activeFeature}
+onFeatureSelect={(feature) => setActiveFeature(prev => prev === feature ? 'none' : feature)}
+/>
+</div>
+</div>
+)
+}
+
+--- START FILE: app/globals.css ---
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 4% 9%;
+    --foreground: 210 40% 98%;
+    --card: 240 4% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 240 4% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 3% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 220 3% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 220 3% 12%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 4% 18%;
+    --input: 217 4% 18%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+--- START FILE: app/layout.tsx ---
+
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
+
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "Gemini Chat",
+  description: "Chatbot AI dengan Gemini dan Next.js",
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} flex flex-col h-screen`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+         >
+          {children}
+          <Toaster />
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}
+
+
+--- START FILE: app/page.tsx ---
+
+'use client'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
+export default function Home() {
+const [email, setEmail] = useState('')
+const [submitted, setSubmitted] = useState(false)
+const router = useRouter()
+const supabase = createClient()
+
+const handleLogin = async (e: React.FormEvent) => {
+e.preventDefault()
+const { error } = await supabase.auth.signInWithOtp({
+email,
+options: {
+emailRedirectTo: `${location.origin}/auth/callback`,
+},
+})
+if (!error) {
+setSubmitted(true)
+} else {
+console.error("Login error:", error.message)
+}
+}
+
+useEffect(() => {
+const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+if (session) {
+router.push('/chat')
+}
+})
+
+return () => {
+subscription.unsubscribe()
+}
+}, [router, supabase])
+
+if (submitted) {
+return (
+<main className="flex min-h-screen flex-col items-center justify-center p-24 bg-background">
+<div className="z-10 w-full max-w-md items-center justify-center font-mono text-sm flex flex-col gap-4 text-center">
+<h1 className="text-2xl font-bold">Periksa Email Anda</h1>
+<p className="text-muted-foreground">
+Kami telah mengirimkan tautan ajaib ke {email}.
+Klik tautan itu untuk masuk.
+</p>
+</div>
+</main>
+)
+}
+
+return (
+<main className="flex min-h-screen flex-col items-center justify-center p-24 bg-background">
+<div className="z-10 w-full max-w-xs items-center justify-center font-mono text-sm flex flex-col gap-4">
+<h1 className="text-2xl font-bold text-center">Masuk ke Gemini Chat</h1>
+<form onSubmit={handleLogin} className="w-full flex flex-col gap-4">
+<Input
+type="email"
+placeholder="Email Anda"
+value={email}
+onChange={(e) => setEmail(e.target.value)}
+required
+/>
+<Button type="submit">Kirim Tautan Ajaib</Button>
+</form>
+</div>
+</main>
+)
+  }
+
+
+--- START FILE: collect.js ---
+
+const fs = require('fs')
+const path = require('path')
+
+const startPath = '.'
+const outputFile = 'project_output.txt'
+const ignoreList = [
+'node_modules',
+'.git',
+'.vscode',
+'dist',
+'build',
+outputFile
+]
+
+function writeToFile(filePath) {
+try {
+const fileContent = fs.readFileSync(filePath, 'utf8')
+const header = `\n\n--- START FILE: ${filePath} ---\n\n`
+fs.appendFileSync(outputFile, header + fileContent, 'utf8')
+} catch (err) {
+fs.appendFileSync(outputFile, `\n\n--- FAILED TO READ: ${filePath} ---\n\n`, 'utf8')
+}
+}
+
+function traverseDir(dir) {
+const files = fs.readdirSync(dir)
+for (const file of files) {
+const fullPath = path.join(dir, file)
+if (ignoreList.includes(file)) {
+continue
+}
+const stat = fs.statSync(fullPath)
+if (stat.isDirectory()) {
+traverseDir(fullPath)
+} else {
+writeToFile(fullPath)
+}
+}
+}
+
+try {
+fs.writeFileSync(outputFile, `Project context for ${path.resolve(startPath)}\n`)
+traverseDir(startPath)
+console.log(`Success: All files have been written to ${outputFile}`)
+} catch (err) {
+console.error('Error:', err)
+}
+
+--- START FILE: components/app-header.tsx ---
+
+'use client'
+
+import { Menu } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+interface AppHeaderProps {
+onMenuClick: () => void
+}
+
+export default function AppHeader({
+onMenuClick }: AppHeaderProps) {
+return (
+<header className="h-16 px-4 border-b flex items-center justify-between shrink-0">
+<div className="flex items-center gap-2">
+<Button variant="ghost" size="icon" onClick={onMenuClick} className="md:hidden">
+<Menu className="w-6 h-6" />
+</Button>
+<span className="font-semibold">Core.ai</span>
+</div>
+</header>
+)
+}
+
+--- START FILE: components/attachment-sheet.tsx ---
+
+'use client'
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { UploadCloud, Camera, Link } from "lucide-react"
+import React, { useRef } from "react"
+
+export function AttachmentSheet() {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (files && files.length > 0) {
+      console.log("File dipilih:", files[0].name)
+      // Logika untuk upload ke Supabase Storage akan ada di sini
+    }
+  }
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+  
+  return (
+    <div className="p-4">
+      <Tabs defaultValue="upload" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="upload">
+            <UploadCloud className="w-4 h-4 mr-2" />
+            Upload
+          </TabsTrigger>
+          <TabsTrigger value="camera">
+            <Camera className="w-4 h-4 mr-2" />
+            Kamera
+          </TabsTrigger>
+          <TabsTrigger value="url">
+            <Link className="w-4 h-4 mr-2" />
+            URL
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="upload" className="mt-4">
+          <div
+            onClick={handleUploadClick}
+            className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted"
+          >
+            <UploadCloud className="w-10 h-10 text-muted-foreground" />
+            <p className="mt-2 text-sm text-muted-foreground">Klik untuk memilih file</p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </div>
+        </TabsContent>
+        <TabsContent value="camera" className="mt-4 text-center">
+            <p className="text-sm text-muted-foreground">Fitur kamera akan segera hadir.</p>
+            <Button className="mt-4" onClick={() => console.log("Buka Kamera")}>Buka Kamera</Button>
+        </TabsContent>
+        <TabsContent value="url" className="mt-4 text-center">
+            <p className="text-sm text-muted-foreground">Fitur lampirkan dari URL akan segera hadir.</p>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+    }
+
+
+--- START FILE: components/canvas-card.tsx ---
+
+'use client'
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Laptop, MoreHorizontal, Copy, Code, Download } from "lucide-react"
+import Link from "next/link"
+import { useToast } from "@/components/ui/use-toast"
+
+interface CanvasCardProps {
+artifactId: string
+title: string
+htmlContent: string
+}
+
+export function CanvasCard({ artifactId, title, htmlContent }: CanvasCardProps) {
+const { toast } = useToast()
+
+const handleCopy = () => {
+navigator.clipboard.writeText(htmlContent)
+toast({ title: "Kode berhasil disalin!" })
+}
+
+const handleDownload = () => {
+const blob = new Blob([htmlContent], { type: 'text/html' })
+const url = URL.createObjectURL(blob)
+const a = document.createElement('a')
+a.href = url
+a.download = `${title.replace(/ /g, '_') || 'canvas'}.html`
+document.body.appendChild(a)
+a.click()
+document.body.removeChild(a)
+URL.revokeObjectURL(url)
+}
+
+return (
+<Card className="max-w-md my-4">
+<CardHeader className="flex flex-row items-start justify-between">
+<div className="flex items-start gap-4">
+<div className="p-2 mt-1 rounded-md bg-secondary">
+<Laptop className="w-6 h-6 text-secondary-foreground" />
+</div>
+<div>
+<CardTitle className="text-lg">{title || "Untitled Canvas"}</CardTitle>
+<p className="text-sm text-muted-foreground">HTML Document</p>
+</div>
+</div>
+<DropdownMenu>
+<DropdownMenuTrigger asChild>
+<Button variant="ghost" size="icon">
+<MoreHorizontal className="w-4 h-4" />
+</Button>
+</DropdownMenuTrigger>
+<DropdownMenuContent align="end">
+<DropdownMenuItem onClick={handleCopy}>
+<Copy className="w-4 h-4 mr-2" />
+Salin Kode
+</DropdownMenuItem>
+<DropdownMenuItem onClick={() => alert('Fitur Edit akan datang!')}>
+<Code className="w-4 h-4 mr-2" />
+Edit Kode
+</DropdownMenuItem>
+<DropdownMenuItem onClick={handleDownload}>
+<Download className="w-4 h-4 mr-2" />
+Download
+</DropdownMenuItem>
+</DropdownMenuContent>
+</DropdownMenu>
+</CardHeader>
+<CardContent>
+<Link href={`/canvas/${artifactId}`} target="_blank" passHref>
+<Button className="w-full">
+Buka di Canvas
+</Button>
+</Link>
+</CardContent>
+</Card>
+)
+  }
+
+
+--- START FILE: components/canvas-panel.tsx ---
+
+'use client'
+
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+
+interface CanvasPanelProps {
+  htmlContent: string | null
+  onOpenChange: (open: boolean) => void
+}
+
+export function CanvasPanel({ htmlContent, onOpenChange }: CanvasPanelProps) {
+  const isOpen = htmlContent !== null
+
+  return (
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:w-3/4 lg:w-1/2 p-0">
+        <SheetHeader className="p-4 border-b">
+          <SheetTitle>Canvas Preview</SheetTitle>
+        </SheetHeader>
+        <div className="w-full h-[calc(100%-65px)]">
+          <iframe
+            srcDoc={htmlContent || ""}
+            title="Canvas Preview"
+            sandbox="allow-scripts"
+            className="w-full h-full border-0"
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+            }
+
+
+--- START FILE: components/chat-message.tsx ---
+
+import { Message } from "ai"
+import { cn } from "@/lib/utils"
+import { CanvasCard } from './canvas-card'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import CodeBlock from './code-block'
+
+export interface ChatMessageProps {
+message: Message
+onPreview: (htmlContent: string) => void
+}
+
+export function ChatMessage({ message, ...props }: ChatMessageProps) {
+if (message.role === 'system') {
+try {
+const parsedContent = JSON.parse(message.content)
+if (parsedContent.type === 'canvas-card') {
+return <CanvasCard {...parsedContent} />
+}
+} catch (e) {
+// Abaikan jika bukan JSON
+}
+return null
+}
+
+if (message.role === 'assistant' && message.content.trim().startsWith('<!DOCTYPE html>')) {
+return null
+}
+
+return (
+<div
+className={cn(
+"group relative mb-4 flex items-start",
+message.role === "user" ? "justify-end" : "justify-start"
+)}
+{...props}
+>
+<div
+className={cn(
+"flex space-x-2 rounded-lg px-3 py-2 max-w-full",
+message.role === "user"
+? "bg-primary text-primary-foreground"
+: "bg-muted"
+)}
+>
+{message.role === 'assistant' ? (
+<article className="prose prose-stone dark:prose-invert max-w-none">
+<ReactMarkdown
+remarkPlugins={[remarkGfm]}
+components={{
+code({ node, className, children, ...props }) {
+const match = /language-(\w+)/.exec(className || '')
+const lang = match?.[1]
+if (lang) {
+return (
+<CodeBlock
+language={lang}
+value={String(children).replace(/\n$/, '')}
+/>
+)
+}
+return <code className={className} {...props}>{children}</code>
+},
+}}
+>
+{message.content}
+</ReactMarkdown>
+</article>
+) : (
+<span className="break-words whitespace-pre-wrap">{message.content}</span>
+)}
+</div>
+</div>
+)
+}
+
+--- START FILE: components/chat-window.tsx ---
+
+'use client'
+
+import { Message } from 'ai'
+import { ChatMessage } from './chat-message'
+import { TypeAnimation } from 'react-type-animation'
+
+interface ChatWindowProps {
+messages: Message[]
+onPreview: (htmlContent: string) => void
+}
+
+export default function ChatWindow({ messages, onPreview }: ChatWindowProps) {
+const showWelcome = messages.length === 0
+
+return (
+<main className="flex-1 overflow-y-auto">
+<div className="max-w-3xl mx-auto px-4 py-6">
+{showWelcome && (
+<div className="flex flex-col items-center justify-center h-[calc(100vh-180px)]">
+<TypeAnimation
+sequence={[
+'Halo, ada yang bisa dibantu?',
+7000,
+'',
+2000
+]}
+wrapper="h1"
+cursor={true}
+repeat={Infinity}
+className="text-3xl md:text-4xl font-bold text-center text-muted-foreground"
+/>
+</div>
+)}
+<div className="flex flex-col gap-6">
+{messages.map(m => (
+<ChatMessage key={m.id} message={m} onPreview={onPreview} />
+))}
+</div>
+</div>
+</main>
+)
+}
+
+--- START FILE: components/code-block.tsx ---
+
+'use client'
+
+import { FC, memo } from 'react'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { coldarkDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
+import { useToast } from './ui/use-toast'
+import { Copy, Check } from 'lucide-react'
+import { useState } from 'react'
+
+interface Props {
+language: string
+value: string
+}
+
+const CodeBlock: FC<Props> = memo(({ language, value }) => {
+const { toast } = useToast()
+const [isCopied, setIsCopied] = useState(false)
+
+const handleCopy = () => {
+navigator.clipboard.writeText(value)
+setIsCopied(true)
+toast({ title: "Kode berhasil disalin!" })
+setTimeout(() => setIsCopied(false), 2000)
+}
+
+return (
+<div className="relative font-sans text-sm bg-[#363A48] rounded-md overflow-x-auto">
+<div className="flex items-center justify-between px-4 py-2 border-b border-zinc-700">
+<span className="text-xs text-zinc-300">{language}</span>
+<button
+className="flex items-center gap-1 text-xs text-zinc-300"
+onClick={handleCopy}
+>
+{isCopied ? <Check size={16} /> : <Copy size={16} />}
+{isCopied ? 'Disalin!' : 'Salin Kode'}
+</button>
+</div>
+<SyntaxHighlighter
+language={language}
+style={coldarkDark}
+wrapLongLines={true}
+customStyle={{
+margin: 0,
+padding: '1rem',
+backgroundColor: 'transparent',
+width: '100%',
+}}
+>
+{value}
+</SyntaxHighlighter>
+</div>
+)
+})
+
+CodeBlock.displayName = 'CodeBlock'
+
+export default CodeBlock
+
+--- START FILE: components/composer.tsx ---
+
+'use client'
+
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Paperclip, SendHorizontal, MoreHorizontal, LoaderCircle, Code, Image as ImageIcon } from 'lucide-react'
+import React, { useState } from 'react'
+import { AttachmentSheet } from './attachment-sheet'
+
+export type ActiveFeature = 'none' | 'canvas' | 'image-gen'
+
+interface ComposerProps {
+input: string
+handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement> | React.ChangeEvent<HTMLInputElement>) => void
+handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void
+isLoading: boolean
+activeFeature: ActiveFeature
+onFeatureSelect: (feature: ActiveFeature) => void
+}
+
+export default function Composer({
+input,
+handleInputChange,
+handleSubmit,
+isLoading,
+activeFeature,
+onFeatureSelect
+}: ComposerProps) {
+const [sheetOpen, setSheetOpen] = useState(false)
+
+const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+if (e.key === 'Enter' && !e.shiftKey) {
+e.preventDefault()
+const form = e.currentTarget.form
+if (form) {
+form.requestSubmit()
+}
+}
+}
+
+const renderActiveFeatureIcon = () => {
+if (activeFeature === 'canvas') {
+return (
+<div className="relative">
+<Code className="w-5 h-5 text-current" />
+<span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-blue-400" />
+</div>
+)
+} else if (activeFeature === 'image-gen') {
+return (
+<div className="relative">
+<ImageIcon className="w-5 h-5 text-current" />
+<span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-blue-400" />
+</div>
+)
+}
+return <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
+}
+
+return (
+<TooltipProvider delayDuration={0}>
+<footer className="bg-muted border-t">
+<div className="max-w-3xl mx-auto px-4 py-3">
+<form onSubmit={handleSubmit} className="relative flex items-center">
+<Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+<Tooltip>
+<SheetTrigger asChild>
+<Button type="button" variant="ghost" size="icon" className="absolute left-2" disabled={isLoading}>
+<Paperclip className="w-5 h-5 text-muted-foreground" />
+</Button>
+</SheetTrigger>
+<TooltipContent>Lampirkan File</TooltipContent>
+</Tooltip>
+<SheetContent side="bottom" className="rounded-t-lg">
+<AttachmentSheet />
+</SheetContent>
+</Sheet>
+
+<Textarea
+value={input}
+onChange={handleInputChange}
+onKeyDown={handleKeyDown}
+placeholder="Ketik pesan..."
+className="w-full rounded-2xl p-3 pl-12 pr-24 resize-none border-border h-12 min-h-0"
+disabled={isLoading}
+/>
+<div className="absolute right-2 flex items-center gap-1">
+<DropdownMenu>
+<Tooltip>
+<DropdownMenuTrigger asChild>
+<Button
+type="button"
+variant="ghost"
+size="icon"
+disabled={isLoading}
+className={activeFeature !== 'none' ? "text-blue-400" : ""}
+>
+{renderActiveFeatureIcon()}
+</Button>
+</DropdownMenuTrigger>
+<TooltipContent>Opsi Lainnya</TooltipContent>
+</Tooltip>
+<DropdownMenuContent align="end">
+<DropdownMenuItem
+onClick={() => onFeatureSelect('canvas')}
+className={activeFeature === 'canvas' ? 'bg-accent text-accent-foreground' : ''}
+>
+<Code className="w-4 h-4 mr-2" />
+<span>Canvas</span>
+</DropdownMenuItem>
+<DropdownMenuItem
+onClick={() => onFeatureSelect('image-gen')}
+className={activeFeature === 'image-gen' ? 'bg-accent text-accent-foreground' : ''}
+>
+<ImageIcon className="w-4 h-4 mr-2" />
+<span>Generate Image</span>
+</DropdownMenuItem>
+</DropdownMenuContent>
+</DropdownMenu>
+
+<Tooltip>
+<TooltipTrigger asChild>
+<Button type="submit" size="icon" className="rounded-full w-8 h-8" disabled={isLoading || !input}>
+{isLoading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
+</Button>
+</TooltipTrigger>
+<TooltipContent>Kirim Pesan</TooltipContent>
+</Tooltip>
+</div>
+</form>
+</div>
+</footer>
+</TooltipProvider>
+)
+}
+
+--- START FILE: components/session-drawer.tsx ---
+
+'use client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { PlusCircle, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
+
+interface Session {
+id: string
+title: string
+}
+
+interface SessionDrawerProps {
+onNewSession: () => void
+}
+
+export default function SessionDrawer({ onNewSession }: SessionDrawerProps) {
+const [sessions, setSessions] = useState<Session[]>([])
+const [isLoading, setIsLoading] = useState(true)
+
+useEffect(() => {
+async function fetchSessions() {
+try {
+setIsLoading(true)
+const response = await fetch('/api/sessions')
+if (response.ok) {
+const data = await response.json()
+setSessions(data)
+}
+} catch (error) {
+console.error("Gagal mengambil sesi:", error)
+} finally {
+setIsLoading(false)
+}
+}
+fetchSessions()
+}, [])
+
+return (
+<div className="flex flex-col h-full bg-muted p-4">
+<div className="flex items-center justify-between pb-4 border-b">
+<h2 className="text-xl font-semibold">Percakapan</h2>
+<Button variant="ghost" size="icon" onClick={onNewSession}>
+<PlusCircle className="w-5 h-5" />
+</Button>
+</div>
+<div className="relative mt-4">
+<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+<Input placeholder="Telusuri sesi..." className="pl-8" />
+</div>
+<div className="flex-1 mt-4 overflow-y-auto">
+{isLoading ? (
+<p className="text-sm text-center text-muted-foreground">Memuat sesi...</p>
+) : sessions.length > 0 ? (
+<div className="flex flex-col gap-2">
+{sessions.map(session => (
+<Button key={session.id} variant="ghost" className="justify-start">
+{session.title || "Percakapan baru"}
+</Button>
+))}
+</div>
+) : (
+<p className="text-sm text-center text-muted-foreground">Belum ada sesi.</p>
+)}
+</div>
+</div>
+)
+}
+
+--- START FILE: components/theme-provider.tsx ---
+
+"use client"
+import * as React from "react"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
+import { type ThemeProviderProps } from "next-themes/dist/types"
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+}
+
+
+--- START FILE: components/ui/button.tsx ---
+
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+import { cn } from "@/lib/utils"
+const buttonVariants = cva(
+"inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none",
+{
+variants: {
+variant: {
+default: "bg-primary text-primary-foreground hover:bg-primary",
+destructive:
+"bg-destructive text-destructive-foreground hover:bg-destructive",
+outline:
+"border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+secondary:
+"bg-secondary text-secondary-foreground hover:bg-secondary",
+ghost: "hover:bg-accent hover:text-accent-foreground",
+link: "text-primary underline-offset-4 hover:underline",
+},
+size: {
+default: "h-10 px-4 py-2",
+sm: "h-9 rounded-md px-3",
+lg: "h-11 rounded-md px-8",
+icon: "h-10 w-10",
+},
+},
+defaultVariants: {
+variant: "default",
+size: "default",
+},
+}
+)
+export interface ButtonProps
+extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+VariantProps<typeof buttonVariants> {
+asChild?: boolean
+}
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+({ className, variant, size, asChild = false, ...props }, ref) => {
+const Comp = asChild ? Slot : "button"
+return (
+<Comp
+className={cn(buttonVariants({ variant, size, className }))}
+ref={ref}
+{...props}
+/>
+)
+}
+)
+Button.displayName = "Button"
+export { Button, buttonVariants }
+
+--- START FILE: components/ui/card.tsx ---
+
+import * as React from "react"
+import { cn } from "@/lib/utils"
+const Card = React.forwardRef<
+HTMLDivElement,
+React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+<div
+ref={ref}
+className={cn(
+"rounded-lg border bg-card text-card-foreground",
+className
+)}
+{...props}
+/>
+))
+Card.displayName = "Card"
+const CardHeader = React.forwardRef<
+HTMLDivElement,
+React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+<div
+ref={ref}
+className={cn("flex flex-col space-y-1.5 p-6", className)}
+{...props}
+/>
+))
+CardHeader.displayName = "CardHeader"
+const CardTitle = React.forwardRef<
+HTMLParagraphElement,
+React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+<h3
+ref={ref}
+className={cn(
+"text-2xl font-semibold leading-none tracking-tight",
+className
+)}
+{...props}
+/>
+))
+CardTitle.displayName = "CardTitle"
+const CardDescription = React.forwardRef<
+HTMLParagraphElement,
+React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+<p
+ref={ref}
+className={cn("text-sm text-muted-foreground", className)}
+{...props}
+/>
+))
+CardDescription.displayName = "CardDescription"
+const CardContent = React.forwardRef<
+HTMLDivElement,
+React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+<div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+))
+CardContent.displayName = "CardContent"
+const CardFooter = React.forwardRef<
+HTMLDivElement,
+React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+<div
+ref={ref}
+className={cn("flex items-center p-6 pt-0", className)}
+{...props}
+/>
+))
+CardFooter.displayName = "CardFooter"
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+
+--- START FILE: components/ui/dialog.tsx ---
+
+"use client"
+import * as React from "react"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
+const Dialog = DialogPrimitive.Root
+const DialogTrigger = DialogPrimitive.Trigger
+const DialogPortal = DialogPrimitive.Portal
+const DialogClose = DialogPrimitive.Close
+const DialogOverlay = React.forwardRef<
+React.ElementRef<typeof DialogPrimitive.Overlay>,
+React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+<DialogPrimitive.Overlay
+ref={ref}
+className={cn(
+"fixed inset-0 z-50 bg-muted data-[state=open]:animate-in data-[state=closed]:animate-out",
+className
+)}
+{...props}
+/>
+))
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+const DialogContent = React.forwardRef<
+React.ElementRef<typeof DialogPrimitive.Content>,
+React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+<DialogPortal>
+<DialogOverlay />
+<DialogPrimitive.Content
+ref={ref}
+className={cn(
+"fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+className
+)}
+{...props}
+>
+{children}
+<DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm ring-offset-background transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+<X className="h-4 w-4" />
+<span className="sr-only">Close</span>
+</DialogPrimitive.Close>
+</DialogPrimitive.Content>
+</DialogPortal>
+))
+DialogContent.displayName = DialogPrimitive.Content.displayName
+const DialogHeader = ({
+className,
+...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+<div
+className={cn(
+"flex flex-col space-y-1.5 text-center sm:text-left",
+className
+)}
+{...props}
+/>
+)
+DialogHeader.displayName = "DialogHeader"
+const DialogFooter = ({
+className,
+...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+<div
+className={cn(
+"flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+className
+)}
+{...props}
+/>
+)
+DialogFooter.displayName = "DialogFooter"
+const DialogTitle = React.forwardRef<
+React.ElementRef<typeof DialogPrimitive.Title>,
+React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+<DialogPrimitive.Title
+ref={ref}
+className={cn(
+"text-lg font-semibold leading-none tracking-tight",
+className
+)}
+{...props}
+/>
+))
+DialogTitle.displayName = DialogPrimitive.Title.displayName
+const DialogDescription = React.forwardRef<
+React.ElementRef<typeof DialogPrimitive.Description>,
+React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+<DialogPrimitive.Description
+ref={ref}
+className={cn("text-sm text-muted-foreground", className)}
+{...props}
+/>
+))
+DialogDescription.displayName = DialogPrimitive.Description.displayName
+export {
+Dialog,
+DialogPortal,
+DialogOverlay,
+DialogTrigger,
+DialogClose,
+DialogContent,
+DialogHeader,
+DialogFooter,
+DialogTitle,
+DialogDescription,
+}
+
+--- START FILE: components/ui/dropdown-menu.tsx ---
+
+"use client"
+import * as React from "react"
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+import { Check, ChevronRight, Circle } from "lucide-react"
+import { cn } from "@/lib/utils"
+const DropdownMenu = DropdownMenuPrimitive.Root
+const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
+const DropdownMenuGroup = DropdownMenuPrimitive.Group
+const DropdownMenuPortal = DropdownMenuPrimitive.Portal
+const DropdownMenuSub = DropdownMenuPrimitive.Sub
+const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
+const DropdownMenuSubTrigger = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
+inset?: boolean
+}
+>(({ className, inset, children, ...props }, ref) => (
+<DropdownMenuPrimitive.SubTrigger
+ref={ref}
+className={cn(
+"flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent",
+inset && "pl-8",
+className
+)}
+{...props}
+>
+{children}
+<ChevronRight className="ml-auto h-4 w-4" />
+</DropdownMenuPrimitive.SubTrigger>
+))
+DropdownMenuSubTrigger.displayName =
+DropdownMenuPrimitive.SubTrigger.displayName
+const DropdownMenuSubContent = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
+>(({ className, ...props }, ref) => (
+<DropdownMenuPrimitive.SubContent
+ref={ref}
+className={cn(
+"z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+className
+)}
+{...props}
+/>
+))
+DropdownMenuSubContent.displayName =
+DropdownMenuPrimitive.SubContent.displayName
+const DropdownMenuContent = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.Content>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
+>(({ className, sideOffset = 4, ...props }, ref) => (
+<DropdownMenuPrimitive.Portal>
+<DropdownMenuPrimitive.Content
+ref={ref}
+sideOffset={sideOffset}
+className={cn(
+"z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+className
+)}
+{...props}
+/>
+</DropdownMenuPrimitive.Portal>
+))
+DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
+const DropdownMenuItem = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.Item>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
+inset?: boolean
+}
+>(({ className, inset, ...props }, ref) => (
+<DropdownMenuPrimitive.Item
+ref={ref}
+className={cn(
+"relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none",
+inset && "pl-8",
+className
+)}
+{...props}
+/>
+))
+DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
+const DropdownMenuCheckboxItem = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
+>(({ className, children, checked, ...props }, ref) => (
+<DropdownMenuPrimitive.CheckboxItem
+ref={ref}
+className={cn(
+"relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none",
+className
+)}
+checked={checked}
+{...props}
+>
+<span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+<DropdownMenuPrimitive.ItemIndicator>
+<Check className="h-4 w-4" />
+</DropdownMenuPrimitive.ItemIndicator>
+</span>
+{children}
+</DropdownMenuPrimitive.CheckboxItem>
+))
+DropdownMenuCheckboxItem.displayName =
+DropdownMenuPrimitive.CheckboxItem.displayName
+const DropdownMenuRadioItem = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
+>(({ className, children, ...props }, ref) => (
+<DropdownMenuPrimitive.RadioItem
+ref={ref}
+className={cn(
+"relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none",
+className
+)}
+{...props}
+>
+<span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+<DropdownMenuPrimitive.ItemIndicator>
+<Circle className="h-2 w-2 fill-current" />
+</DropdownMenuPrimitive.ItemIndicator>
+</span>
+{children}
+</DropdownMenuPrimitive.RadioItem>
+))
+DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
+const DropdownMenuLabel = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.Label>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
+inset?: boolean
+}
+>(({ className, inset, ...props }, ref) => (
+<DropdownMenuPrimitive.Label
+ref={ref}
+className={cn(
+"px-2 py-1.5 text-sm font-semibold",
+inset && "pl-8",
+className
+)}
+{...props}
+/>
+))
+DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName
+const DropdownMenuSeparator = React.forwardRef<
+React.ElementRef<typeof DropdownMenuPrimitive.Separator>,
+React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+<DropdownMenuPrimitive.Separator
+ref={ref}
+className={cn("-mx-1 my-1 h-px bg-muted", className)}
+{...props}
+/>
+))
+DropdownMenuSeparator.displayName =
+DropdownMenuPrimitive.Separator.displayName
+const DropdownMenuShortcut = ({
+className,
+...props
+}: React.HTMLAttributes<HTMLSpanElement>) => {
+return (
+<span
+className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
+{...props}
+/>
+)
+}
+DropdownMenuShortcut.displayName = "DropdownMenuShortcut"
+export {
+DropdownMenu,
+DropdownMenuTrigger,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuCheckboxItem,
+DropdownMenuRadioItem,
+DropdownMenuLabel,
+DropdownMenuSeparator,
+DropdownMenuShortcut,
+DropdownMenuGroup,
+DropdownMenuPortal,
+DropdownMenuSub,
+DropdownMenuSubContent,
+DropdownMenuSubTrigger,
+DropdownMenuRadioGroup,
+}
+
+--- START FILE: components/ui/input.tsx ---
+
+import * as React from "react"
+import { cn } from "@/lib/utils"
+export interface InputProps
+extends React.InputHTMLAttributes<HTMLInputElement> {}
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+({ className, type, ...props }, ref) => {
+return (
+<input
+type={type}
+className={cn(
+"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed",
+className
+)}
+ref={ref}
+{...props}
+/>
+)
+}
+)
+Input.displayName = "Input"
+export { Input }
+
+--- START FILE: components/ui/sheet.tsx ---
+
+"use client"
+import * as React from "react"
+import * as SheetPrimitive from "@radix-ui/react-dialog"
+import { cva, type VariantProps } from "class-variance-authority"
+import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
+const Sheet = SheetPrimitive.Root
+const SheetTrigger = SheetPrimitive.Trigger
+const SheetClose = SheetPrimitive.Close
+const SheetPortal = SheetPrimitive.Portal
+const SheetOverlay = React.forwardRef<
+React.ElementRef<typeof SheetPrimitive.Overlay>,
+React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+<SheetPrimitive.Overlay
+className={cn(
+"fixed inset-0 z-50 bg-muted data-[state=open]:animate-in data-[state=closed]:animate-out",
+className
+)}
+{...props}
+ref={ref}
+/>
+))
+SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
+const sheetVariants = cva(
+"fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+{
+variants: {
+side: {
+top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+bottom:
+"inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
+right:
+"inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
+},
+},
+defaultVariants: {
+side: "right",
+},
+}
+)
+interface SheetContentProps
+extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
+VariantProps<typeof sheetVariants> {}
+const SheetContent = React.forwardRef<
+React.ElementRef<typeof SheetPrimitive.Content>,
+SheetContentProps
+>(({ side = "right", className, children, ...props }, ref) => (
+<SheetPortal>
+<SheetOverlay />
+<SheetPrimitive.Content
+ref={ref}
+className={cn(sheetVariants({ side }), className)}
+{...props}
+>
+{children}
+<SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm ring-offset-background transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+<X className="h-4 w-4" />
+<span className="sr-only">Close</span>
+</SheetPrimitive.Close>
+</SheetPrimitive.Content>
+</SheetPortal>
+))
+SheetContent.displayName = SheetPrimitive.Content.displayName
+const SheetHeader = ({
+className,
+...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+<div
+className={cn(
+"flex flex-col space-y-2 text-center sm:text-left",
+className
+)}
+{...props}
+/>
+)
+SheetHeader.displayName = "SheetHeader"
+const SheetFooter = ({
+className,
+...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+<div
+className={cn(
+"flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+className
+)}
+{...props}
+/>
+)
+SheetFooter.displayName = "SheetFooter"
+const SheetTitle = React.forwardRef<
+React.ElementRef<typeof SheetPrimitive.Title>,
+React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
+>(({ className, ...props }, ref) => (
+<SheetPrimitive.Title
+ref={ref}
+className={cn("text-lg font-semibold text-foreground", className)}
+{...props}
+/>
+))
+SheetTitle.displayName = SheetPrimitive.Title.displayName
+const SheetDescription = React.forwardRef<
+React.ElementRef<typeof SheetPrimitive.Description>,
+React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>
+>(({ className, ...props }, ref) => (
+<SheetPrimitive.Description
+ref={ref}
+className={cn("text-sm text-muted-foreground", className)}
+{...props}
+/>
+))
+SheetDescription.displayName = SheetPrimitive.Description.displayName
+export {
+Sheet,
+SheetPortal,
+SheetOverlay,
+SheetTrigger,
+SheetClose,
+SheetContent,
+SheetHeader,
+SheetFooter,
+SheetTitle,
+SheetDescription,
+}
+
+--- START FILE: components/ui/tabs.tsx ---
+
+"use client"
+import * as React from "react"
+import * as TabsPrimitive from "@radix-ui/react-tabs"
+import { cn } from "@/lib/utils"
+const Tabs = TabsPrimitive.Root
+const TabsList = React.forwardRef<
+React.ElementRef<typeof TabsPrimitive.List>,
+React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+<TabsPrimitive.List
+ref={ref}
+className={cn(
+"inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+className
+)}
+{...props}
+/>
+))
+TabsList.displayName = TabsPrimitive.List.displayName
+const TabsTrigger = React.forwardRef<
+React.ElementRef<typeof TabsPrimitive.Trigger>,
+React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+<TabsPrimitive.Trigger
+ref={ref}
+className={cn(
+"inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+className
+)}
+{...props}
+/>
+))
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+const TabsContent = React.forwardRef<
+React.ElementRef<typeof TabsPrimitive.Content>,
+React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+<TabsPrimitive.Content
+ref={ref}
+className={cn(
+"mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+className
+)}
+{...props}
+/>
+))
+TabsContent.displayName = TabsPrimitive.Content.displayName
+export { Tabs, TabsList, TabsTrigger, TabsContent }
+
+
+--- START FILE: components/ui/textarea.tsx ---
+
+import * as React from "react"
+import { cn } from "@/lib/utils"
+export interface TextareaProps
+extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+({ className, ...props }, ref) => {
+return (
+<textarea
+className={cn(
+"flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed",
+className
+)}
+ref={ref}
+{...props}
+/>
+)
+}
+)
+Textarea.displayName = "Textarea"
+export { Textarea }
+
+--- START FILE: components/ui/toast.tsx ---
+
+import * as React from "react"
+import * as ToastPrimitives from "@radix-ui/react-toast"
+import { cva, type VariantProps } from "class-variance-authority"
+import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
+const ToastProvider = ToastPrimitives.Provider
+const ToastViewport = React.forwardRef<
+React.ElementRef<typeof ToastPrimitives.Viewport>,
+React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
+>(({ className, ...props }, ref) => (
+<ToastPrimitives.Viewport
+ref={ref}
+className={cn(
+"fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]",
+className
+)}
+{...props}
+/>
+))
+ToastViewport.displayName = ToastPrimitives.Viewport.displayName
+const toastVariants = cva(
+"group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+{
+variants: {
+variant: {
+default: "border bg-background text-foreground",
+destructive:
+"destructive group border-destructive bg-destructive text-destructive-foreground",
+},
+},
+defaultVariants: {
+variant: "default",
+},
+}
+)
+const Toast = React.forwardRef<
+React.ElementRef<typeof ToastPrimitives.Root>,
+React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
+VariantProps<typeof toastVariants>
+>(({ className, variant, ...props }, ref) => {
+return (
+<ToastPrimitives.Root
+ref={ref}
+className={cn(toastVariants({ variant }), className)}
+{...props}
+/>
+)
+})
+Toast.displayName = ToastPrimitives.Root.displayName
+const ToastAction = React.forwardRef<
+React.ElementRef<typeof ToastPrimitives.Action>,
+React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>
+>(({ className, ...props }, ref) => (
+<ToastPrimitives.Action
+ref={ref}
+className={cn(
+"inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive",
+className
+)}
+{...props}
+/>
+))
+ToastAction.displayName = ToastPrimitives.Action.displayName
+const ToastClose = React.forwardRef<
+React.ElementRef<typeof ToastPrimitives.Close>,
+React.ComponentPropsWithoutRef<typeof ToastPrimitives.Close>
+>(({ className, ...props }, ref) => (
+<ToastPrimitives.Close
+ref={ref}
+className={cn(
+"absolute right-2 top-2 rounded-md p-1 text-muted-foreground transition-opacity hover:text-foreground focus:outline-none focus:ring-2 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+className
+)}
+toast-close=""
+{...props}
+>
+<X className="h-4 w-4" />
+</ToastPrimitives.Close>
+))
+ToastClose.displayName = ToastPrimitives.Close.displayName
+const ToastTitle = React.forwardRef<
+React.ElementRef<typeof ToastPrimitives.Title>,
+React.ComponentPropsWithoutRef<typeof ToastPrimitives.Title>
+>(({ className, ...props }, ref) => (
+<ToastPrimitives.Title
+ref={ref}
+className={cn("text-sm font-semibold", className)}
+{...props}
+/>
+))
+ToastTitle.displayName = ToastPrimitives.Title.displayName
+const ToastDescription = React.forwardRef<
+React.ElementRef<typeof ToastPrimitives.Description>,
+React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
+>(({ className, ...props }, ref) => (
+<ToastPrimitives.Description
+ref={ref}
+className={cn("text-sm text-muted-foreground", className)}
+{...props}
+/>
+))
+ToastDescription.displayName = ToastPrimitives.Description.displayName
+type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
+type ToastActionElement = React.ReactElement<typeof ToastAction>
+export {
+type ToastProps,
+type ToastActionElement,
+ToastProvider,
+ToastViewport,
+Toast,
+ToastTitle,
+ToastDescription,
+ToastClose,
+ToastAction,
+}
+
+--- START FILE: components/ui/toaster.tsx ---
+
+"use client"
+import {
+Toast,
+ToastClose,
+ToastDescription,
+ToastProvider,
+ToastTitle,
+ToastViewport,
+} from "@/components/ui/toast"
+import { useToast } from "@/components/ui/use-toast"
+export function Toaster() {
+const { toasts } = useToast()
+return (
+<ToastProvider>
+{toasts.map(function ({ id, title, description, action, ...props }) {
+return (
+<Toast key={id} {...props}>
+<div className="grid gap-1">
+{title && <ToastTitle>{title}</ToastTitle>}
+{description && (
+<ToastDescription>{description}</ToastDescription>
+)}
+</div>
+{action}
+<ToastClose />
+</Toast>
+)
+})}
+<ToastViewport />
+</ToastProvider>
+)
+}
+
+
+--- START FILE: components/ui/tooltip.tsx ---
+
+"use client"
+import * as React from "react"
+import * as TooltipPrimitive from "@radix-ui/react-tooltip"
+import { cn } from "@/lib/utils"
+const TooltipProvider = TooltipPrimitive.Provider
+const Tooltip = TooltipPrimitive.Root
+const TooltipTrigger = TooltipPrimitive.Trigger
+const TooltipContent = React.forwardRef<
+React.ElementRef<typeof TooltipPrimitive.Content>,
+React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
+>(({ className, sideOffset = 4, ...props }, ref) => (
+<TooltipPrimitive.Content
+ref={ref}
+sideOffset={sideOffset}
+className={cn(
+"z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+className
+)}
+{...props}
+/>
+))
+TooltipContent.displayName = TooltipPrimitive.Content.displayName
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+
+
+--- START FILE: components/ui/use-toast.tsx ---
+
+import * as React from "react"
+import type {
+  ToastActionElement,
+  ToastProps,
+} from "@/components/ui/toast"
+import { create } from "zustand"
+
+const TOAST_LIMIT = 1
+const TOAST_REMOVE_DELAY = 1000000
+
+type ToasterToast = ToastProps & {
+  id: string
+  title?: React.ReactNode
+  description?: React.ReactNode
+  action?: ToastActionElement
+}
+
+type ToastState = {
+  toasts: ToasterToast[]
+  toast: (toast: Omit<ToasterToast, "id">) => void
+  dismiss: (toastId?: string) => void
+}
+
+let count = 0
+
+function genId() {
+  count = (count + 1) % Number.MAX_SAFE_INTEGER
+  return count.toString()
+}
+
+export const useToast = create<ToastState>((set, get) => ({
+  toasts: [],
+  toast: ({ ...props }) => {
+    const id = genId()
+
+    const update = (toast: ToasterToast) =>
+      set((state) => ({
+        toasts: [toast, ...state.toasts.filter((t) => t.id !== toast.id)],
+      }))
+
+    const toast: ToasterToast = {
+      id,
+      onOpenChange: (open) => {
+        if (!open) {
+          // Hapus toast dari daftar
+          set((state) => ({
+            toasts: state.toasts.filter((t) => t.id !== id),
+          }))
+        }
+      },
+      ...props,
+    }
+
+    // Tambahkan toast baru ke daftar
+    set((state) => ({
+      toasts: [toast, ...state.toasts].slice(0, TOAST_LIMIT),
+    }))
+  },
+  dismiss: (toastId?: string) => {
+    if (toastId) {
+      // Hapus toast spesifik
+      set((state) => ({
+        toasts: state.toasts.filter((t) => t.id !== toastId),
+      }))
+    } else {
+      // Hapus semua toast
+      set({ toasts: [] })
+    }
+  },
+}))
+  
+
+
+--- START FILE: lib/gemini.ts ---
+
+import { GoogleGenerativeAI } from "@google/generative-ai"
+if (!process.env.GEMINI_API_KEY) {
+throw new Error("GEMINI_API_KEY environment variable is not set")
+}
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+export default genAI
+
+--- START FILE: lib/supabase/client.ts ---
+
+import { createBrowserClient } from '@supabase/ssr'
+export function createClient() {
+return createBrowserClient(
+process.env.NEXT_PUBLIC_SUPABASE_URL!,
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+}
+
+--- START FILE: lib/supabase/server.ts ---
+
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+export function createClient() {
+const cookieStore = cookies()
+return createServerClient(
+process.env.NEXT_PUBLIC_SUPABASE_URL!,
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+{
+cookies: {
+get(name: string) {
+return cookieStore.get(name)?.value
+},
+set(name: string, value: string, options: CookieOptions) {
+try {
+cookieStore.set({ name, value, ...options })
+} catch (error) {
+// The `set` method was called from a Server Component.
+// This can be ignored if you have middleware refreshing
+// user sessions.
+}
+},
+remove(name: string, options: CookieOptions) {
+try {
+cookieStore.set({ name, value: '', ...options })
+} catch (error) {
+// The `remove` method was called from a Server Component.
+// This can be ignored if you have middleware refreshing
+// user sessions.
+}
+},
+},
+}
+)
+}
+
+--- START FILE: lib/utils.ts ---
+
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+export function cn(...inputs: ClassValue[]) {
+return twMerge(clsx(inputs))
+}
+
+
+--- START FILE: middleware.ts ---
+
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+let response = NextResponse.next({
+request: {
+headers: request.headers,
+},
+})
+
+const supabase = createServerClient(
+process.env.NEXT_PUBLIC_SUPABASE_URL!,
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+{
+cookies: {
+get(name: string) {
+return request.cookies.get(name)?.value
+},
+set(name: string, value: string, options: CookieOptions) {
+response.cookies.set({
+name,
+value,
+...options,
+})
+},
+remove(name: string, options: CookieOptions) {
+response.cookies.set({
+name,
+value: '',
+...options,
+})
+},
+},
+}
+)
+
+await supabase.auth.getUser()
+
+return response
+}
+
+export const config = {
+matcher: [
+'/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+],
+}
+
+--- START FILE: package.json ---
+
+{
+  "name": "chatbot-ai-gemini",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.14.1",
+    "@radix-ui/react-avatar": "^1.1.0",
+    "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.1",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-scroll-area": "^1.1.0",
+    "@radix-ui/react-select": "^2.1.1",
+    "@radix-ui/react-separator": "^1.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-tabs": "^1.1.0",
+    "@radix-ui/react-toast": "^1.2.1",
+    "@radix-ui/react-tooltip": "^1.1.2",
+    "@supabase/ssr": "^0.4.0",
+    "@supabase/supabase-js": "^2.44.4",
+    "@tanstack/react-query": "^5.51.1",
+    "ai": "^3.2.32",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.3.8",
+    "lucide-react": "^0.414.0",
+    "next": "14.2.5",
+    "next-themes": "^0.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.4.1",
+    "react-markdown": "^9.0.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "react-type-animation": "^3.2.0",
+    "remark-gfm": "^4.0.0",
+    "tailwind-merge": "^2.4.0",
+    "tailwindcss-animate": "^1.0.7",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.13",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5.5.3"
+  }
+}
+
+--- START FILE: postcss.config.js ---
+
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+
+
+--- START FILE: tailwind.config.ts ---
+
+import type { Config } from "tailwindcss"
+
+const config: Config = {
+darkMode: ["class"],
+content: [
+'./components/**/*.{ts,tsx}',
+'./app/**/*.{ts,tsx}',
+],
+prefix: "",
+theme: {
+container: {
+center: true,
+padding: "2rem",
+screens: {
+"2xl": "1400px",
+},
+},
+extend: {
+keyframes: {
+"accordion-down": {
+from: { height: "0" },
+to: { height: "var(--radix-accordion-content-height)" },
+},
+"accordion-up": {
+from: { height: "var(--radix-accordion-content-height)" },
+to: { height: "0" },
+},
+},
+animation: {
+"accordion-down": "accordion-down 0.2s ease-out",
+"accordion-up": "accordion-up 0.2s ease-out",
+},
+},
+},
+plugins: [
+require("tailwindcss-animate"),
+require("@tailwindcss/typography"),
+],
+}
+
+export default config
+
+--- START FILE: tsconfig.json ---
+
+{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
