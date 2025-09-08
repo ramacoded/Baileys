@@ -53,7 +53,6 @@ ref={fileInputRef}
 onChange={handleFileSelect}
 className="hidden"
 multiple
-accept="image/*"
 />
 </div>
 </TabsContent>

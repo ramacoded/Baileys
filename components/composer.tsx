@@ -18,6 +18,8 @@ handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void
 isLoading: boolean
 activeFeature: ActiveFeature
 onFeatureSelect: (feature: ActiveFeature) => void
+uploadedFiles: File[]
+setUploadedFiles: React.Dispatch<React.SetStateAction<File[]>>
 }
 
 export default function Composer({
@@ -26,10 +28,11 @@ handleInputChange,
 handleSubmit,
 isLoading,
 activeFeature,
-onFeatureSelect
+onFeatureSelect,
+uploadedFiles,
+setUploadedFiles
 }: ComposerProps) {
 const [sheetOpen, setSheetOpen] = useState(false)
-const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
 const [previewImage, setPreviewImage] = useState<string | null>(null)
 const [isZoomed, setIsZoomed] = useState(false)
 
@@ -173,7 +176,7 @@ aria-label="Remove file"
 value={input}
 onChange={handleInputChange}
 onKeyDown={handleKeyDown}
-placeholder="Ketik pesan... (Ctrl+Enter untuk mengirim)"
+placeholder="Ketik pesan..."
 className="w-full rounded-2xl p-3 pl-12 pr-24 resize-none border-border h-12 min-h-0"
 disabled={isLoading}
 />
@@ -213,7 +216,7 @@ className={activeFeature === 'image-gen' ? 'bg-accent text-accent-foreground' : 
 
 <Tooltip>
 <TooltipTrigger asChild>
-<Button type="submit" size="icon" className="rounded-full w-8 h-8" disabled={isLoading || !input}>
+<Button type="submit" size="icon" className="rounded-full w-8 h-8" disabled={isLoading || (!input && uploadedFiles.length === 0)}>
 {isLoading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
 </Button>
 </TooltipTrigger>
