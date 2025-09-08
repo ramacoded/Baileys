@@ -1,151 +1,169 @@
 "use client"
-import * as React from "react"
-import { useChat, type Message } from "ai/react"
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { createClient } from '@/lib/supabase/client'
+import { Lightbulb, Code, Palette, Rocket, Brain, Wand, Mail } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from "react-hot-toast"
-import ChatWindow from "@/components/chat-window"
-import AppHeader from "@/components/app-header"
-import Composer, { type ActiveFeature } from "@/components/composer"
-import SessionDrawer from "@/components/session-drawer"
-import { v4 as uuidv4 } from 'uuid'
-import { createClient } from "@/lib/supabase/client"
 
-const fileToGenerativePart = async (file: File) => {
-const base64 = await new Promise<string>((resolve, reject) => {
-const reader = new FileReader()
-reader.readAsDataURL(file)
-reader.onload = () => resolve(reader.result as string)
-reader.onerror = (error) => reject(error)
-})
-return {
-inlineData: {
-data: base64.split(',')[1],
-mimeType: file.type,
-},
-}
-}
+const phrases = [
+{ text: "Let's design", icon: <Palette className="inline-block mr-2" />, bgColor: "bg-red-400" },
+{ text: "Let's code", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
+{ text: "Let's create", icon: <Wand className="inline-block mr-2" />, bgColor: "bg-green-400" },
+{ text: "Explorate", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-purple-400" },
+{ text: "Let's go", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-orange-400" },
+{ text: "Core AI", icon: <Brain className="inline-block mr-2" />, bgColor: "bg-emerald-400" },
+]
 
-export default function ChatPage() {
-const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
-const [activeFeature, setActiveFeature] = React.useState<ActiveFeature>('none')
-const [sessionId, setSessionId] = React.useState<string | null>(null)
-const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([])
-const supabase = createClient()
-const [previewHtml, setPreviewHtml] = React.useState(null)
-
-const handleFinish = async (assistantMessage: Message) => {
-if (!sessionId) return
-if (activeFeature === 'canvas') {
-const title = prompt("Beri judul untuk Canvas ini:")
-if (!title) {
-toast.error("Judul diperlukan. Canvas tidak disimpan.")
-setMessages(prev => prev.slice(0, prev.length - 1))
-return
-}
-const response = await fetch('/api/artifacts', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ htmlContent: assistantMessage.content, title })
-})
-const { id, error } = await response.json()
-if (error) {
-throw new Error(error)
-}
-const canvasCardMessage: Message = {
-id: uuidv4(),
-role: 'system',
-content: JSON.stringify({ type: 'canvas-card', artifactId: id, title, htmlContent: assistantMessage.content })
-}
-setMessages(prev => [...prev.slice(0, prev.length - 1), canvasCardMessage])
-await saveMessageToDb(sessionId, 'assistant', canvasCardMessage.content)
-} else {
-await saveMessageToDb(sessionId, 'assistant', assistantMessage.content)
-}
-}
-
-const handleNewSession = async () => {
-setMessages([])
-setSessionId(null)
-setUploadedFiles([])
-}
-
-const saveMessageToDb = async (sessionId: string, role: string, content: string) => {
-try {
-await fetch('/api/messages', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ session_id: sessionId, role, content })
-})
-} catch (error) {
-console.error("Gagal menyimpan pesan:", error)
-}
-}
-
-const { messages, input, handleInputChange, handleSubmit, isLoading, append, setMessages } = useChat({
-api: '/api/chat/stream',
-body: {
-activeFeature
-},
-onFinish: handleFinish,
-onError: (error) => {
-toast.error(error.message)
-},
-})
-
-const handleCustomSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-e.preventDefault()
-const currentInput = input
-if (!currentInput && uploadedFiles.length === 0) return
-let newSessionId = sessionId
-if (!newSessionId) {
-const response = await fetch('/api/sessions', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ title: currentInput.substring(0, 30) || "Percakapan baru" })
-})
-const data = await response.json()
-newSessionId = data.id
-setSessionId(newSessionId)
-}
-setUploadedFiles([])
-const textPart = currentInput ? [{ text: currentInput }] : []
-const fileParts = await Promise.all(
-uploadedFiles.map(fileToGenerativePart)
+const GoogleIcon = () => (
+<svg viewBox="0 0 48 48" className="w-5 h-5 mr-2">
+<path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12
+c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24
+c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
+<path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657
+C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
+<path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36
+c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
+<path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571
+l6.19,5.238C42.012,36.417,44,30.638,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
+</svg>
 )
-const userMessageContent = [...fileParts, ...textPart]
-const userMessage = {
-id: uuidv4(),
-role: 'user',
-content: userMessageContent,
-} as any
-append(userMessage)
-await saveMessageToDb(newSessionId!, 'user', JSON.stringify(userMessageContent))
+
+export default function LandingPage() {
+const [phraseIndex, setPhraseIndex] = useState(0)
+const [displayedText, setDisplayedText] = useState("")
+const [isTyping, setIsTyping] = useState(true)
+const [charIndex, setCharIndex] = useState(0)
+const [email, setEmail] = useState('')
+const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
+const [submitted, setSubmitted] = useState(false)
+const supabase = createClient()
+
+const currentPhrase = phrases[phraseIndex].text
+const currentBgColor = phrases[phraseIndex].bgColor
+
+useEffect(() => {
+if (isTyping && charIndex < currentPhrase.length) {
+const typingTimeout = setTimeout(() => {
+setDisplayedText(currentPhrase.substring(0, charIndex + 1))
+setCharIndex(charIndex + 1)
+}, 50)
+return () => clearTimeout(typingTimeout)
+} else if (isTyping && charIndex === currentPhrase.length) {
+const pauseTimeout = setTimeout(() => {
+setIsTyping(false)
+}, currentPhrase === "Core AI" ? 5000 : 500)
+return () => clearTimeout(pauseTimeout)
+} else if (!isTyping && charIndex > 0) {
+const deletingTimeout = setTimeout(() => {
+setDisplayedText(currentPhrase.substring(0, charIndex - 1))
+setCharIndex(charIndex - 1)
+}, 30)
+return () => clearTimeout(deletingTimeout)
+} else if (!isTyping && charIndex === 0) {
+const nextPhraseTimeout = setTimeout(() => {
+setPhraseIndex((prev) => (prev + 1) % phrases.length)
+setIsTyping(true)
+}, 500)
+return () => clearTimeout(nextPhraseTimeout)
+}
+}, [charIndex, isTyping, currentPhrase, phraseIndex])
+
+const handleSignInWithGoogle = async () => {
+await supabase.auth.signInWithOAuth({
+provider: 'google',
+options: {
+redirectTo: `${location.origin}/auth/callback`,
+},
+})
+}
+
+const handleEmailSignIn = async (e: React.FormEvent) => {
+e.preventDefault()
+const { error } = await supabase.auth.signInWithOtp({
+email,
+options: {
+emailRedirectTo: `${location.origin}/auth/callback`,
+},
+})
+if (error) {
+toast.error(error.message)
+} else {
+setSubmitted(true)
+}
 }
 
 return (
-<div className="h-screen w-full relative overflow-hidden bg-background">
-<div className={`absolute top-0 left-0 h-full bg-background border-r z-50 w-72 transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-<SessionDrawer onNewSession={handleNewSession} />
-</div>
-{isDrawerOpen && (
-<div
-onClick={() => setIsDrawerOpen(false)}
-className="absolute inset-0 bg-background z-40 md:hidden"
+<div className={`flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-300 ${currentBgColor}`}>
+<div className="flex-grow flex items-center justify-center text-center">
+<AnimatePresence mode="wait">
+<motion.h1
+key={phraseIndex}
+initial={{ opacity: 0, y: -20 }}
+animate={{ opacity: 1, y: 0 }}
+exit={{ opacity: 0, y: 20 }}
+transition={{ duration: 0.3 }}
+className="text-4xl md:text-6xl font-bold drop-shadow-lg"
+>
+{phrases[phraseIndex].icon}
+{displayedText}
+<span
+className="inline-block w-1 h-10 md:h-16 bg-white ml-2 align-middle animate-blink"
 />
+</motion.h1>
+</AnimatePresence>
+</div>
+
+<div className="w-full max-w-xs space-y-3">
+<Button
+className="w-full py-3 text-base rounded-full bg-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+onClick={handleSignInWithGoogle}
+>
+<GoogleIcon />
+Sign in with Google
+</Button>
+<Button
+className="w-full py-3 text-base rounded-full bg-gray-600 text-white hover:bg-gray-700"
+onClick={() => setIsEmailDialogOpen(true)}
+>
+<Mail className="w-5 h-5 mr-2" />
+Sign in with Email
+</Button>
+</div>
+
+<Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+<DialogContent className="sm:max-w-md bg-white text-black">
+<DialogHeader>
+<DialogTitle>Sign in with Email</DialogTitle>
+<DialogDescription>
+Enter your email below to receive a confirmation link to sign in.
+</DialogDescription>
+</DialogHeader>
+{submitted ? (
+<div className="text-center py-4">
+<h3 className="font-bold">Check your inbox</h3>
+<p className="text-sm text-gray-600">We've sent a confirmation link to {email}.</p>
+</div>
+) : (
+<form onSubmit={handleEmailSignIn} className="flex flex-col gap-4">
+<Input
+type="email"
+placeholder="you@example.com"
+value={email}
+onChange={(e) => setEmail(e.target.value)}
+required
+className="bg-gray-100 border-gray-300"
+/>
+<Button type="submit" className="bg-black text-white hover:bg-gray-800">
+Send Confirmation Link
+</Button>
+</form>
 )}
-<div className="flex flex-col h-full">
-<AppHeader onMenuClick={() => setIsDrawerOpen(!isDrawerOpen)} />
-<ChatWindow messages={messages} isLoading={isLoading} onPreview={() => {}} />
-<Composer
-input={input}
-handleInputChange={handleInputChange}
-handleSubmit={handleCustomSubmit}
-isLoading={isLoading}
-activeFeature={activeFeature}
-onFeatureSelect={(feature) => setActiveFeature(prev => prev === feature ? 'none' : feature)}
-uploadedFiles={uploadedFiles}
-setUploadedFiles={setUploadedFiles}
-/>
-</div>
+</DialogContent>
+</Dialog>
 </div>
 )
 }
