@@ -8,7 +8,12 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
 title: "DeepCore",
-description: "Chatbot AI with Gemini API",
+description: "Chatbot AI dengan Gemini dan Next.js",
+icons: {
+icon: '/icon.png',
+apple: '/apple-icon.png',
+shortcut: '/favicon.ico',
+},
 }
 
 export default function RootLayout({
