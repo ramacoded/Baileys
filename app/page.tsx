@@ -10,11 +10,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from "react-hot-toast"
 
 const phrases = [
-{ text: "let's design", icon: <Palette className="inline-block mr-2" />, bgColor: "bg-red-400" },
-{ text: "let's code", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
-{ text: "let's create", icon: <Wand className="inline-block mr-2" />, bgColor: "bg-green-400" },
-{ text: "explorate", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-purple-400" },
-{ text: "let's go", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-orange-400" },
+{ text: "Let's Design", icon: <Palette className="inline-block mr-2" />, bgColor: "bg-red-400" },
+{ text: "Let's Coding", icon: <Code className="inline-block mr-2" />, bgColor: "bg-blue-400" },
+{ text: "Let's Create", icon: <Wand className="inline-block mr-2" />, bgColor: "bg-green-400" },
+{ text: "Let's Explorate", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-purple-400" },
+{ text: "Let's Go", icon: <Rocket className="inline-block mr-2" />, bgColor: "bg-orange-400" },
 { text: "Core AI", icon: <Brain className="inline-block mr-2" />, bgColor: "bg-emerald-400" },
 ]
 
@@ -53,7 +53,9 @@ setCharIndex(charIndex + 1)
 }, 50)
 return () => clearTimeout(typingTimeout)
 } else if (isTyping && charIndex === currentPhrase.length) {
-const pauseTimeout = setTimeout(() => setIsTyping(false), 2000)
+const pauseTimeout = setTimeout(() => {
+setIsTyping(false)
+}, currentPhrase === "Core AI" ? 5000 : 500)
 return () => clearTimeout(pauseTimeout)
 } else if (!isTyping && charIndex > 0) {
 const deletingTimeout = setTimeout(() => {
@@ -79,7 +81,7 @@ redirectTo: `${location.origin}/auth/callback`,
 })
 }
 
-const handleEmailSignIn = async (e: React.FormEvent) => {
+const handleEmailSignIn = async (e) => {
 e.preventDefault()
 const { error } = await supabase.auth.signInWithOtp({
 email,
@@ -95,7 +97,7 @@ setSubmitted(true)
 }
 
 return (
-<div className={`flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-1000 ${currentBgColor}`}>
+<div className={`flex flex-col items-center justify-center min-h-screen p-8 text-white transition-colors duration-300 ${currentBgColor}`}>
 <div className="flex-grow flex items-center justify-center text-center">
 <AnimatePresence mode="wait">
 <motion.h1
@@ -117,14 +119,14 @@ className="inline-block w-1 h-10 md:h-16 bg-white ml-2 align-middle animate-blin
 
 <div className="w-full max-w-xs space-y-3">
 <Button
-className="w-full py-3 text-base rounded-full bg-white text-gray-800 hover:bg-gray-200 flex items-center justify-center"
+className="w-full py-3 text-base rounded-full bg-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
 onClick={handleSignInWithGoogle}
 >
 <GoogleIcon />
 Sign in with Google
 </Button>
 <Button
-className="w-full py-3 text-base rounded-full bg-white/20 text-white hover:bg-white/30"
+className="w-full py-3 text-base rounded-full bg-gray-600 text-white hover:bg-gray-700"
 onClick={() => setIsEmailDialogOpen(true)}
 >
 <Mail className="w-5 h-5 mr-2" />
@@ -137,13 +139,13 @@ Sign in with Email
 <DialogHeader>
 <DialogTitle>Sign in with Email</DialogTitle>
 <DialogDescription>
-Enter your email below to receive a magic link to sign in.
+Enter your email below to receive a confirmation link to sign in.
 </DialogDescription>
 </DialogHeader>
 {submitted ? (
 <div className="text-center py-4">
 <h3 className="font-bold">Check your inbox</h3>
-<p className="text-sm text-gray-600">We've sent a magic link to {email}.</p>
+<p className="text-sm text-gray-600">We've sent a confirmation link to {email}.</p>
 </div>
 ) : (
 <form onSubmit={handleEmailSignIn} className="flex flex-col gap-4">
@@ -156,7 +158,7 @@ required
 className="bg-gray-100 border-gray-300"
 />
 <Button type="submit" className="bg-black text-white hover:bg-gray-800">
-Send Magic Link
+Send Confirmation Link
 </Button>
 </form>
 )}
