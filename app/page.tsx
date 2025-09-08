@@ -81,7 +81,7 @@ redirectTo: `${location.origin}/auth/callback`,
 })
 }
 
-const handleEmailSignIn = async (e) => {
+const handleEmailSignIn = async (e: React.FormEvent) => {
 e.preventDefault()
 const { error } = await supabase.auth.signInWithOtp({
 email,
