@@ -118,7 +118,7 @@ role: 'user',
 content: userMessageContent,
 } as any
 append(userMessage)
-await saveMessageToDb(newSessionId, 'user', JSON.stringify(userMessageContent))
+await saveMessageToDb(newSessionId!, 'user', JSON.stringify(userMessageContent))
 }
 
 return (
